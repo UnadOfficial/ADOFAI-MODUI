@@ -57,5 +57,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-x64
-          path: src/ADOFAI.ModManager/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/
+          path: src/ADOFAI.ModManager/bin/x64/Release/net8.0-windows10.0.19041.0/
           if-no-files-found: ignore
+
+  # 安装脚本（Inno Setup）的编译校验：用占位载荷走一遍真实编译，
+  # 保证 .iss 在发版之前就是可编译的。发版流程见 release.yml。
+  installer:
+    name: 安装脚本编译校验 (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 准备占位载荷
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path 'dist/app' -Force | Out-Null
+          Set-Content -Path 'dist/app/ADOFAI.ModManager.exe' -Value 'placeholder' -Encoding utf8
+
+      - name: 编译安装程序
+        shell: pwsh
+        run: pwsh -NoProfile -File installer/build-installer.ps1 -Version 0.0.0 -Numeric 0.0.0.0

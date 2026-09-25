@@ -42,6 +42,12 @@ AppPackages/
 # Publish output
 publish/
 
+# Release 打包中间产物（便携版 zip / 安装程序）
+dist/
+
+# 由 release 工作流从 Inno Setup 安装目录复制而来，不入库
+installer/ChineseSimplified.isl
+
 # Test results
 TestResults/
 *.trx
@@ -49,3 +55,7 @@ TestResults/
 # OS
 Thumbs.db
 .DS_Store
+
+# Python（scripts/make-icon.py 等）
+__pycache__/
+*.pyc

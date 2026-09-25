@@ -44,7 +44,10 @@ ADOFAI-MODUI/
 │     └─ Controls/ · Converters/ · Services/Ui/ · Strings/zh-CN/
 ├─ tests/ADOFAI.ModManager.Core.Tests/ # 单元测试 + 真实 API golden fixtures
 ├─ tools/typecheck/                    # 非 Windows 主机上的应用层类型检查工程
-└─ scripts/verify.sh                   # 一键验证（测试 + 构建/类型检查）
+├─ assets/                             # app.ico / app.png（由 scripts/make-icon.py 生成）
+├─ installer/                          # Inno Setup 安装脚本（Release 安装程序）
+├─ scripts/                            # verify.sh（一键验证）· make-icon.py（生成图标）
+└─ .github/workflows/                  # ci.yml（提交校验）· release.yml（发版）
 ```
 
 ## 构建与运行
@@ -70,6 +73,56 @@ dotnet run --project src/ADOFAI.ModManager -c Release
 - **Linux / macOS**：`XamlCompiler` 只能在 Windows 上运行（它会 P/Invoke `kernel32.dll`），因此改为用 `tools/typecheck` 对应用层做编译期类型检查——它引用真实的 WinAppSDK 引用程序集，可校验全部 WinUI API 用法，但不校验 XAML 标记本身。详见 `tools/typecheck/README.md`。
 
 仓库根目录的 `global.json` 将 SDK 固定为 8.0（`rollForward: latestFeature`）：.NET 10 SDK 会因 `win10-*` 这类版本化 RID 无法识别而中断 WinAppSDK 还原。
+
+## 发版（Release）
+
+发版流水线见 `.github/workflows/release.yml`，产出两种分发形态 + 校验和：
+
+| 产物 | 说明 |
+| --- | --- |
+| `ADOFAI.ModManager-<版本>-win-x64.zip` | 便携版：解压即用（自包含 .NET 8 与 Windows App SDK 运行时，无需预装任何依赖） |
+| `ADOFAI.ModManager-<版本>-win-x64-Setup.exe` | 安装程序（Inno Setup）：开始菜单/桌面快捷方式、卸载项、中英双语界面 |
+| `SHA256SUMS.txt` | 两个产物的 SHA-256 校验和 |
+
+### 触发方式
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3      # 标准发版
+```
+
+或在 **Actions → Release → Run workflow** 手动触发，可指定版本号、是否创建 Release、是否标记预发布。默认只上传工作流产物，勾选“创建 Release”后才会发布，便于先验货。
+
+### 流水线结构
+
+```
+resolve（解析版本/标签）─┐
+test（核心层单元测试）───┴─> package（Windows：publish → 便携版 zip）
+                                  └─> installer（下载同一份载荷 → Inno Setup 编译）
+                                            └─> release（校验和 + gh release create/upload）
+```
+
+- **版本号**：取自标签（`v1.2.3` → `1.2.3`），含 `-` 的版本自动标记为预发布；安装程序的 `FileVersion` 使用补零后的四段号（`1.2.3` → `1.2.3.0`）。
+- **单一份载荷**：安装程序复用 `package` 任务上传的 artifact，因此安装内容与便携版逐字节一致。
+- **幂等**：Release 已存在时改为覆盖资产，重跑不会失败。
+
+### 本地构建分发产物
+
+```powershell
+# 1) publish 自包含产物
+dotnet publish src/ADOFAI.ModManager/ADOFAI.ModManager.csproj `
+  -c Release -p:Platform=x64 -r win-x64 --self-contained true `
+  -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true
+
+# 2) 复制到安装脚本约定的载荷目录
+Copy-Item -Recurse src/ADOFAI.ModManager/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/publish dist/app
+
+# 3) 编译安装程序（需 Inno Setup 6.3+，脚本会自动定位 ISCC.exe）
+pwsh -File installer/build-installer.ps1 -Version 1.2.3 -Numeric 1.2.3.0
+```
+
+安装程序默认「仅为我安装」（无需管理员），用户可在向导首屏切换为全机器安装。简体中文界面依赖 `ChineseSimplified.isl`（Inno Setup 6.5+ 随附，缺失时 `build-installer.ps1` 会自动下载；再失败则只编译英文界面）。
+
+图标由 `python3 scripts/make-icon.py` 生成（需要 Pillow），产物 `assets/app.ico` 同时用于 exe 图标、安装程序与快捷方式。
 
 ## 使用说明
 

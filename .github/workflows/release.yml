@@ -1,0 +1,367 @@
+name: Release
+
+# 发版流程：便携版 zip + Inno Setup 安装程序 + SHA256 校验和 → GitHub Release
+#
+# 触发方式：
+#   * 推送 v* 标签（如 v1.2.3）—— 标准发版路径
+#   * 手动触发（Actions → Release → Run workflow）。默认只上传工作流产物；
+#     勾选 “创建 Release” 才会发 GitHub Release。标签推送始终创建 Release。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（不含 v 前缀，如 1.2.3）。留空则由标签推导，或生成 0.0.0-dev.<run>'
+        required: false
+        type: string
+      create_release:
+        description: '构建完成后创建 GitHub Release（默认不创建，只上传工作流产物）'
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: '标记为预发布（版本号含 “-” 时自动开启）'
+        required: false
+        type: boolean
+        default: false
+
+# 默认最小权限，仅发布任务提权
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  PUBLISH_DIR: src/ADOFAI.ModManager/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/publish
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. 解析版本号（标签 / 手动输入），产出后续任务共用的版本与标签
+  # ───────────────────────────────────────────────────────────────────────────
+  resolve:
+    name: 解析版本
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      numeric: ${{ steps.v.outputs.numeric }}
+      tag: ${{ steps.v.outputs.tag }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      create_release: ${{ steps.v.outputs.create_release }}
+    steps:
+      - name: 计算版本 / 标签 / 预发布标记
+        id: v
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CREATE_RELEASE: ${{ inputs.create_release }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          else
+            VERSION="${INPUT_VERSION#v}"
+            if [ -z "${VERSION}" ]; then
+              VERSION="0.0.0-dev.${GITHUB_RUN_NUMBER}"
+            fi
+            TAG="v${VERSION}"
+          fi
+
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$'; then
+            echo "::error::非法版本号 '${VERSION}'（期望 semver，如 1.2.3 或 1.2.3-beta.1）"
+            exit 1
+          fi
+
+          # 安装程序 FileVersion 资源需要 x.x.x.x 四段纯数字
+          CORE="${VERSION%%-*}"
+          CORE="${CORE%%+*}"
+          IFS='.' read -r MA MI PA <<< "${CORE}"
+          NUMERIC="${MA}.${MI}.${PA}.0"
+
+          # 版本号带 “-” 即视为预发布；手动触发时可显式开启
+          PRERELEASE=false
+          case "${VERSION}" in
+            *-*) PRERELEASE=true ;;
+          esac
+          if [ "${INPUT_PRERELEASE:-false}" = "true" ]; then
+            PRERELEASE=true
+          fi
+
+          CREATE_RELEASE=true
+          if [ "${INPUT_CREATE_RELEASE:-true}" = "false" ]; then
+            CREATE_RELEASE=false
+          fi
+
+          {
+            echo "version=${VERSION}"
+            echo "numeric=${NUMERIC}"
+            echo "tag=${TAG}"
+            echo "prerelease=${PRERELEASE}"
+            echo "create_release=${CREATE_RELEASE}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "### 发版参数"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 版本 | \`${VERSION}\` |"
+            echo "| 标签 | \`${TAG}\` |"
+            echo "| FileVersion | \`${NUMERIC}\` |"
+            echo "| 预发布 | ${PRERELEASE} |"
+            echo "| 创建 Release | ${CREATE_RELEASE} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. 发布闸门：核心层单元测试（跨平台，秒级完成）
+  # ───────────────────────────────────────────────────────────────────────────
+  test:
+    name: 核心层测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: dotnet test
+        run: >
+          dotnet test tests/ADOFAI.ModManager.Core.Tests/ADOFAI.ModManager.Core.Tests.csproj
+          -c Release --logger "trx;LogFileName=tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/tests.trx'
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. 发布自包含 win-x64 产物，打包为便携版 zip
+  #    （WinUI 3 的 XAML 编译依赖 Windows，只能在 windows-latest 上 publish）
+  # ───────────────────────────────────────────────────────────────────────────
+  package:
+    name: 打包便携版 zip (win-x64)
+    needs: [ resolve, test ]
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish（自包含，含 .NET 与 Windows App SDK 运行时）
+        run: >
+          dotnet publish src/ADOFAI.ModManager/ADOFAI.ModManager.csproj
+          -c Release
+          -p:Platform=x64
+          -r win-x64
+          --self-contained true
+          -p:WindowsPackageType=None
+          -p:WindowsAppSDKSelfContained=true
+          -p:PublishReadyToRun=true
+          -p:PublishTrimmed=false
+          -p:Version="${{ needs.resolve.outputs.version }}"
+
+      - name: 组装待分发目录
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $publishDir = $env:PUBLISH_DIR
+          if (-not (Test-Path (Join-Path $publishDir 'ADOFAI.ModManager.exe'))) {
+            # 兜底：RID/Platform 组合变化时输出路径可能不同，就地搜一次
+            $found = Get-ChildItem -Path 'src/ADOFAI.ModManager/bin' -Recurse -Directory -Filter 'publish' -ErrorAction SilentlyContinue |
+                     Where-Object { Test-Path (Join-Path $_.FullName 'ADOFAI.ModManager.exe') } |
+                     Select-Object -First 1
+            if (-not $found) {
+              throw "publish 输出中找不到 ADOFAI.ModManager.exe（预期：$publishDir）—— 构建可能未真正成功"
+            }
+            $publishDir = $found.FullName
+            Write-Host "已回退定位 publish 目录：$publishDir"
+          }
+
+          $name  = "ADOFAI.ModManager-$env:VERSION-win-x64"
+          $stage = Join-Path 'dist' $name
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item -Path (Join-Path $publishDir '*') -Destination $stage -Recurse -Force
+
+          # 分发包不含调试符号，避免体积翻倍
+          Get-ChildItem -Path $stage -Recurse -Filter '*.pdb' -File | Remove-Item -Force
+          # Apache-2.0 要求随二进制分发附许可全文
+          Copy-Item -Path 'LICENSE' -Destination $stage -Force
+
+          $files = @(Get-ChildItem -Path $stage -Recurse -File)
+          $bytes = ($files | Measure-Object -Property Length -Sum).Sum
+          Write-Host ("待分发文件：{0} 个，共 {1:N1} MB" -f $files.Count, ($bytes / 1MB))
+
+      - name: 压缩为 zip（zip 内含同名根目录，解压不散落）
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $name  = "ADOFAI.ModManager-${{ needs.resolve.outputs.version }}-win-x64"
+          $stage = Join-Path 'dist' $name
+          $zip   = Join-Path 'dist' "$name.zip"
+          if (-not (Test-Path $stage)) { throw "待打包目录不存在：$stage" }
+
+          # 7-Zip 随 windows runner 预装，速度远快于 Compress-Archive
+          $sevenZip = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source
+          if ($sevenZip) {
+            Push-Location 'dist'
+            try {
+              & $sevenZip a -tzip -mx=9 -mmt=on "$name.zip" "$name"
+              if ($LASTEXITCODE -ne 0) { throw "7z 打包失败，退出码 $LASTEXITCODE" }
+            } finally {
+              Pop-Location
+            }
+          } else {
+            # 兜底：Compress-Archive 同样把目录本身写进压缩包根
+            Compress-Archive -Path $stage -DestinationPath $zip -CompressionLevel Optimal
+          }
+
+          if (-not (Test-Path $zip)) { throw "未生成 $zip" }
+          Write-Host ("便携版：{0}（{1:N1} MB）" -f $zip, ((Get-Item $zip).Length / 1MB))
+
+      - name: Upload 便携版 zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-zip
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload 应用载荷（供安装程序任务复用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-payload
+          path: dist/ADOFAI.ModManager-${{ needs.resolve.outputs.version }}-win-x64/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 4. 用 Inno Setup 把同一份载荷打成安装程序
+  #    （复用上一步的 artifact，保证安装内容与便携版逐字节一致）
+  # ───────────────────────────────────────────────────────────────────────────
+  installer:
+    name: 生成安装程序 (Inno Setup)
+    needs: [ resolve, package ]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 下载应用载荷
+        uses: actions/download-artifact@v4
+        with:
+          name: app-payload
+          path: dist/app
+
+      - name: 编译安装程序（Inno Setup）
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          NUMERIC: ${{ needs.resolve.outputs.numeric }}
+        shell: pwsh
+        run: >
+          pwsh -NoProfile -File installer/build-installer.ps1
+          -Version "$env:VERSION"
+          -Numeric "$env:NUMERIC"
+          -PayloadDir dist/app
+          -OutDir dist
+
+      - name: Upload 安装程序
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/*-Setup.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 5. 汇总校验和并创建 / 更新 GitHub Release
+  # ───────────────────────────────────────────────────────────────────────────
+  release:
+    name: 发布 GitHub Release
+    needs: [ resolve, package, installer ]
+    if: needs.resolve.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 下载发版产物
+        uses: actions/download-artifact@v4
+        with:
+          # 只取发版产物；测试报告等 artifact 不应混进 Release
+          pattern: '{portable-zip,installer}'
+          path: dist
+          merge-multiple: true
+
+      - name: 生成 SHA256 校验和
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          ls -lh
+          sha256sum ./*.zip ./*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: 创建 / 更新 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PRERELEASE: ${{ needs.resolve.outputs.prerelease }}
+        working-directory: dist
+        run: |
+          set -euo pipefail
+
+          flags=(--title "ADOFAI Mod 管理器 ${VERSION}")
+          [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+          # 手动触发时标签尚不存在：就地打到本次构建的提交上
+          [ "${GITHUB_REF_TYPE}" != "tag" ] && flags+=(--target "$GITHUB_SHA")
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，改为覆盖资产"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber ./*
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --generate-notes "${flags[@]}" ./* \
+              || gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber ./*
+          fi
+
+      - name: 写入任务摘要
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          {
+            echo "### 发版产物"
+            echo ""
+            echo "| 文件 | 大小 |"
+            echo "| --- | --- |"
+            for f in ./*.zip ./*.exe; do
+              echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) |"
+            done
+            echo ""
+            echo '```'
+            cat SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
