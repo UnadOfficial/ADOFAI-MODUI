@@ -1,0 +1,6 @@
+# 桩工程专属：Stubs.cs 手写的成员刻意模仿 XAML 生成代码的形状
+# （非 static 的 InitializeComponent、赋空值的 x:Name 字段），
+# 因此关掉与之冲突的“可静态化 / 字段未使用”提示。
+[Stubs.cs]
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.CS0414.severity = none

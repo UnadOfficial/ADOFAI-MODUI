@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    WinUI 应用层的「类型检查」工程（不属于解决方案，不参与正常构建）。
+
+    背景：WinUI 3 的 XAML 编译器（XamlCompiler）只能在 Windows 上运行
+    （它会 P/Invoke kernel32.dll），因此 Linux/macOS 上无法完整构建应用工程。
+    本工程通过以下方式在非 Windows 主机上对应用层 C# 代码做编译期类型检查：
+
+      1. 引用真实的 WinAppSDK / Windows SDK 引用程序集（因此所有 WinUI API
+         用法、枚举名、事件签名都会被真实校验）；
+      2. 排除 XAML 项（EnableDefaultPageItems=false），改由 Stubs.cs 手写
+         等价于 XAML 代码生成器的成员（InitializeComponent 与 x:Name 字段）。
+
+    它不能替代 Windows 上的完整构建：x:Bind 路径、资源键、XAML 语法仍由
+    Windows 上的 XamlCompiler 校验（见 .github/workflows/ci.yml 的 app 任务）。
+
+    用法：
+      dotnet build tools/typecheck/Typecheck.csproj -c Release -t:Compile
+      （或直接运行 scripts/verify.sh）
+
+    维护提示：当 XAML 新增 x:Name 元素或新增 x:Class 文件时，需同步更新 Stubs.cs。
+  -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <Platform Condition="'$(Platform)' == 'AnyCPU'">x64</Platform>
+    <!-- 纯类型检查不需要资源打包（PRI 生成是 Windows-only 的 MSBuild 任务） -->
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <AppxGetPackagePropertiesEnabled>false</AppxGetPackagePropertiesEnabled>
+    <IncludeProjectPriFile>false</IncludeProjectPriFile>
+    <AppSourceDir>$(MSBuildThisFileDirectory)../../src/ADOFAI.ModManager/</AppSourceDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(AppSourceDir)**/*.cs" Exclude="$(AppSourceDir)obj/**;$(AppSourceDir)bin/**" />
+    <Compile Include="Stubs.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/ADOFAI.ModManager.Core/ADOFAI.ModManager.Core.csproj" />
+  </ItemGroup>
+
+</Project>

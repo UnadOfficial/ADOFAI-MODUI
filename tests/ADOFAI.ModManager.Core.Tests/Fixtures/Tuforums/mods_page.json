@@ -1,0 +1,56 @@
+{
+  "total": 156,
+  "mods": [
+    {
+      "id": 161,
+      "slug": "tufhelper",
+      "name": "TUFHelper",
+      "creatorUsername": "coyami_ke",
+      "creatorDiscordId": "123456789012345678",
+      "version": "3.1.1",
+      "description": "***Notes***\n\n- Scrolls to a selected level of the pack\n- Redesign of the in-game leaderboard\n\nhttps://github.com/example/releases/tag/v3.1.1\n",
+      "downloadUrl": "https://github.com/example/TUFHelper/releases/tag/v3.1.1",
+      "imageUrl": "https://api.tuforums.com/cdn/images/mod_icon/5dd1f377/original",
+      "projectUrl": null,
+      "deprecatedAfter": null,
+      "sourceUploadedAt": "2025-09-23T12:42:59.000Z",
+      "isPinned": true,
+      "likes": 6,
+      "downloadCount": 210,
+      "tags": [
+        { "id": 1, "name": "Gameplay", "color": "#ff7070", "sortOrder": 0 },
+        { "id": 5, "name": "Overlay", "color": "#8d70ff", "sortOrder": 4 }
+      ],
+      "assignees": [
+        { "userId": "07089614-e72d-4e73-8327-d54e50c63e95", "playerId": 2275, "name": "coyami-ke", "username": "coyami_ke" }
+      ],
+      "postedBy": {
+        "userId": "07089614-e72d-4e73-8327-d54e50c63e95", "playerId": 2275, "name": "coyami-ke", "username": "coyami_ke"
+      }
+    },
+    {
+      "id": 90,
+      "slug": "jipperkeyviewer",
+      "name": "Jipper Key Viewer",
+      "creatorUsername": "hitmargin",
+      "version": "1.7.2",
+      "description": "## New Features\n- FreeMake custom-layout editor\n\n# [Download](https://github.com/example/JipperKeyViewer/releases/download/1.7.2/JipperKeyViewer.zip)",
+      "downloadUrl": "https://github.com/example/JipperKeyViewer/releases/download/1.7.2/JipperKeyViewer.zip",
+      "imageUrl": null,
+      "projectUrl": null,
+      "deprecatedAfter": null,
+      "sourceUploadedAt": "2025-09-19T06:23:44.000Z",
+      "isPinned": false,
+      "likes": 4,
+      "downloadCount": 116,
+      "tags": [
+        { "id": 5, "name": "Overlay", "color": "#8d70ff", "sortOrder": 0 }
+      ],
+      "assignees": [],
+      "postedBy": null
+    }
+  ],
+  "offset": 0,
+  "limit": 2,
+  "hasMore": true
+}

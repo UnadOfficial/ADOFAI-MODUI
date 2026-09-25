@@ -1,0 +1,51 @@
+# .NET
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+.vscode/
+.idea/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+
+# Windows App SDK / MSIX
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixupload
+AppPackages/
+
+# Publish output
+publish/
+
+# Test results
+TestResults/
+*.trx
+
+# OS
+Thumbs.db
+.DS_Store

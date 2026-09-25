@@ -1,0 +1,19 @@
+# 代码分析规则的项目级取舍（仅记录有意的例外，其余规则保持默认开启）
+root = true
+
+[*.cs]
+# Core 以平台中立的 net8.0 为目标只是为了能在 Linux/macOS 上跑单元测试；
+# 产品本身仅支持 Windows，注册表 / 进程 / explorer.exe 等 Windows-only API
+# 的调用是刻意为之，故不再逐处标注 [SupportedOSPlatform]。
+dotnet_diagnostic.CA1416.severity = none
+
+# 日志性能建议：本项目的日志调用量与热路径开销可忽略，
+# 改用 LoggerMessage 源生成器的收益不足以抵消可读性成本。
+dotnet_diagnostic.CA1848.severity = suggestion
+
+# CompositeFormat 缓存属于微优化，仅在极少调用的格式化路径上出现。
+dotnet_diagnostic.CA1863.severity = suggestion
+
+# 测试方法名沿用 xUnit 惯例（Given_When_Then 下划线命名）
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

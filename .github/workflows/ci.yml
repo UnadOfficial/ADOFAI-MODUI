@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  # 跨平台可跑：核心层（领域模型 / 服务 / ViewModel）编译 + 单元测试
+  core:
+    name: Core 构建与测试 (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test Core
+        run: dotnet test tests/ADOFAI.ModManager.Core.Tests/ADOFAI.ModManager.Core.Tests.csproj -c Release --logger "trx;LogFileName=tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/tests.trx"
+          if-no-files-found: ignore
+
+  # WinUI 3 的 XAML 编译依赖 Windows（XamlCompiler 会 P/Invoke kernel32），
+  # 因此应用层的完整构建（含 x:Bind / 资源键校验）只能在 Windows 上执行。
+  app:
+    name: WinUI 应用构建 (Windows x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore ADOFAI.ModManager.sln
+
+      - name: Build WinUI app (x64)
+        run: dotnet build src/ADOFAI.ModManager/ADOFAI.ModManager.csproj -c Release -p:Platform=x64 --no-restore
+
+      - name: Upload build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-x64
+          path: src/ADOFAI.ModManager/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/
+          if-no-files-found: ignore

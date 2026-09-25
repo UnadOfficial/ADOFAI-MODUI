@@ -1,0 +1,115 @@
+<Page
+    x:Class="ADOFAI.ModManager.Views.ModsBrowsePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:ADOFAI.ModManager.Controls"
+    xmlns:vm="using:ADOFAI.ModManager.Core.ViewModels"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Grid Padding="28,16,28,12" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  ── 页头与工具栏 ──  -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock
+                x:Uid="BrowsePage_Title"
+                Text="浏览 Mod"
+                FontSize="28"
+                FontWeight="SemiBold" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                <Button Command="{x:Bind ViewModel.UpdateAllCommand}" ToolTipService.ToolTip="更新所有已安装且可更新的 Mod">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE895;" FontSize="14" />
+                        <TextBlock Text="一键更新" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{x:Bind ViewModel.RefreshCommand}" ToolTipService.ToolTip="强制刷新远端目录并重扫本地">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                        <TextBlock Text="刷新" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!--  ── 过滤行 ──  -->
+        <Grid Grid.Row="1" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="360" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <AutoSuggestBox
+                x:Name="SearchBox"
+                x:Uid="BrowsePage_Search"
+                PlaceholderText="搜索 Mod 名称 / 作者…"
+                QueryIcon="Find"
+                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay}" />
+
+            <ComboBox
+                Grid.Column="1"
+                MinWidth="140"
+                ItemsSource="{x:Bind ViewModel.AvailableTags, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedTag, Mode=TwoWay}"
+                PlaceholderText="全部标签" />
+
+            <ComboBox
+                Grid.Column="2"
+                MinWidth="140"
+                ItemsSource="{x:Bind ViewModel.StatusOptions, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedStatus, Mode=TwoWay}" />
+
+            <ProgressRing
+                Grid.Column="3"
+                Width="24" Height="24"
+                IsActive="{x:Bind ViewModel.IsRefreshing, Mode=OneWay}" />
+        </Grid>
+
+        <!--  ── 提示（离线缓存 / 错误 / 结果） ──  -->
+        <InfoBar
+            Grid.Row="2"
+            IsOpen="{x:Bind ViewModel.NoticeOpen, Mode=OneWay}"
+            IsClosable="True"
+            CloseButtonClick="Notice_CloseClick"
+            Severity="{x:Bind ViewModel.NoticeIsError, Mode=OneWay, Converter={StaticResource BoolToSeverity}}"
+            Message="{x:Bind ViewModel.Notice, Mode=OneWay}" />
+
+        <!--  ── Mod 卡片列表 ──  -->
+        <ListView
+            Grid.Row="3"
+            ItemsSource="{x:Bind ViewModel.BrowseCards, Mode=OneWay}"
+            SelectionMode="None"
+            IsItemClickEnabled="False">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:ModCardViewModel">
+                    <controls:ModCard ViewModel="{x:Bind}" />
+                </DataTemplate>
+            </ListView.ItemTemplate>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+    </Grid>
+</Page>

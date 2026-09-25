@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ADOFAI.ModManager（WinUI 3 桌面应用）
+    - 非打包模式（Unpackaged）：WindowsPackageType=None
+    - 自包含 WindowsAppSDK 运行时：WindowsAppSDKSelfContained=true（无需单独安装 WinAppRuntime）
+    - Fluent Design / Mica 背景
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>ADOFAI.ModManager</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- 命令行 dotnet build / dotnet run 未指定平台时映射到 x64 -->
+    <Platform Condition="'$(Platform)' == 'AnyCPU'">x64</Platform>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <DefaultLanguage>zh-CN</DefaultLanguage>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRun>
+    <!-- 允许在非 Windows 主机上 restore/分析该工程（WinUI 的 XAML 编译仍需 Windows） -->
+    <EnableWindowsTargeting Condition="'$(OS)' != 'Windows_NT'">true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ADOFAI.ModManager.Core\ADOFAI.ModManager.Core.csproj" />
+  </ItemGroup>
+
+</Project>

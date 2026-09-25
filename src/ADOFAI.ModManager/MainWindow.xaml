@@ -1,0 +1,61 @@
+<Window
+    x:Class="ADOFAI.ModManager.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  自定义标题栏（ExtendsContentIntoTitleBar）  -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Background="Transparent">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0" Spacing="10">
+                <FontIcon Glyph="&#xE9F5;" FontSize="16" />
+                <TextBlock x:Name="AppTitleText"
+                           x:Uid="AppTitle"
+                           Text="ADOFAI Mod 管理器"
+                           VerticalAlignment="Center"
+                           FontSize="13"
+                           FontWeight="SemiBold" />
+            </StackPanel>
+        </Grid>
+
+        <muxc:NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            IsBackButtonVisible="Collapsed"
+            IsSettingsVisible="False"
+            PaneDisplayMode="Left"
+            OpenPaneLength="200"
+            SelectionChanged="NavView_SelectionChanged">
+
+            <muxc:NavigationView.MenuItems>
+                <muxc:NavigationViewItem x:Uid="Nav_Browse" Tag="browse" IsSelected="True">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8F1;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+                <muxc:NavigationViewItem x:Uid="Nav_Installed" Tag="installed">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+                <muxc:NavigationViewItem x:Uid="Nav_Downloads" Tag="downloads">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE896;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+                <muxc:NavigationViewItem x:Uid="Nav_Settings" Tag="settings">
+                    <muxc:NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </muxc:NavigationViewItem.Icon>
+                </muxc:NavigationViewItem>
+            </muxc:NavigationView.MenuItems>
+
+            <Frame x:Name="ContentFrame" />
+        </muxc:NavigationView>
+    </Grid>
+</Window>

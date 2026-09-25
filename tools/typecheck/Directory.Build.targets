@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    本工程只做编译期校验，因此把默认 Build 目标收敛到 Compile，
+    避免触发 WinAppSDK 里 Windows-only 的 PRI / 打包 MSBuild 任务
+    （它们依赖 Visual Studio 自带的 AppxPackage 程序集，Linux 上不存在）。
+
+    必须放在 Directory.Build.targets 里：Sdk.targets 在工程体之后导入，
+    在 .csproj 内部定义同名 Target 无法覆盖它。
+  -->
+  <Target Name="Build" DependsOnTargets="Compile" />
+</Project>

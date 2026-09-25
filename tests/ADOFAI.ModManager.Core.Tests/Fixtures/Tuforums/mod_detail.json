@@ -1,0 +1,48 @@
+{
+  "mod": {
+    "id": 161,
+    "slug": "tufhelper",
+    "name": "TUFHelper",
+    "creatorUsername": "coyami_ke",
+    "creatorDiscordId": "123456789012345678",
+    "version": "3.1.1",
+    "description": "Notes",
+    "downloadUrl": "https://github.com/example/TUFHelper/releases/tag/v3.1.1",
+    "imageUrl": null,
+    "projectUrl": "https://github.com/example/TUFHelper",
+    "deprecatedAfter": null,
+    "sourceUploadedAt": "2025-09-23T12:42:59.000Z",
+    "isPinned": true,
+    "likes": 6,
+    "downloadCount": 210,
+    "tags": [],
+    "assignees": [],
+    "postedBy": null,
+    "latestVersion": {
+      "id": 187,
+      "version": "3.1.1",
+      "downloadUrl": "https://github.com/example/TUFHelper/releases/tag/v3.1.1",
+      "notes": "notes text",
+      "releasedAt": "2025-09-23T12:42:59.000Z",
+      "source": "github"
+    },
+    "versions": [
+      {
+        "id": 187,
+        "version": "3.1.1",
+        "downloadUrl": "https://github.com/example/TUFHelper/releases/tag/v3.1.1",
+        "notes": "notes text",
+        "releasedAt": "2025-09-23T12:42:59.000Z",
+        "source": "github"
+      },
+      {
+        "id": 150,
+        "version": "3.0.9",
+        "downloadUrl": "https://github.com/example/TUFHelper/releases/tag/v3.0.9",
+        "notes": "older notes",
+        "releasedAt": "2025-08-01T00:00:00.000Z",
+        "source": "github"
+      }
+    ]
+  }
+}
