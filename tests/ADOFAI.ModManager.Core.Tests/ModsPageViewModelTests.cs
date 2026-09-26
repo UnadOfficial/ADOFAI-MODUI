@@ -20,7 +20,16 @@ public class ModsPageViewModelTests
     }
 
     private static (ModsPageViewModel Vm, FakeLocal Local, FakeTuf Tuf, TestHost.FakeSettingsService Settings, FakeNav Nav) CreateFull(
-        LocalMod[] locals, TufMod[] remote, string? gameRoot = @"C:\Games\ADOFAI", bool isValidGameRoot = true)
+        LocalMod[] locals, TufMod[] remote, string? gameRoot = @"C:\Games\ADOFAI", bool isValidGameRoot = true,
+        FakeLifecycle? lifecycle = null, IDispatcherService? dispatcher = null)
+    {
+        var (vm, local, tuf, settings, nav, _) = CreateFullWithSteam(locals, remote, gameRoot, isValidGameRoot, lifecycle, dispatcher);
+        return (vm, local, tuf, settings, nav);
+    }
+
+    private static (ModsPageViewModel Vm, FakeLocal Local, FakeTuf Tuf, TestHost.FakeSettingsService Settings, FakeNav Nav, FakeSteam Steam) CreateFullWithSteam(
+        LocalMod[] locals, TufMod[] remote, string? gameRoot = @"C:\Games\ADOFAI", bool isValidGameRoot = true,
+        FakeLifecycle? lifecycle = null, IDispatcherService? dispatcher = null)
     {
         var settings = TestHost.CreateSettings(gameRoot);
         var local = new FakeLocal(locals);
@@ -28,9 +37,9 @@ public class ModsPageViewModelTests
         var steam = new FakeSteam(isValidGameRoot);
         var nav = new FakeNav();
         var vm = new ModsPageViewModel(
-            tuf, local, new FakeLifecycle(), new FakeCache(),
-            new FakeDialogs(), settings, steam, nav, NullLogger<ModsPageViewModel>.Instance);
-        return (vm, local, tuf, settings, nav);
+            tuf, local, lifecycle ?? new FakeLifecycle(), new FakeCache(),
+            new FakeDialogs(), settings, steam, nav, NullLogger<ModsPageViewModel>.Instance, dispatcher);
+        return (vm, local, tuf, settings, nav, steam);
     }
 
     [Fact]
@@ -257,6 +266,159 @@ public class ModsPageViewModelTests
         Assert.True(locator.IsValidGameRoot(emptyDir));
     }
 
+    [Fact]
+    public async Task SettingsService_SaveAsync_WithNotifyFalse_DoesNotRaiseSettingsSaved()
+    {
+        var settingsService = new SettingsService(NullLogger<SettingsService>.Instance);
+        var raised = false;
+        settingsService.SettingsSaved += (_, _) => raised = true;
+
+        await settingsService.SaveAsync(notifySettingsChanged: false);
+        Assert.False(raised, "SaveAsync(notifySettingsChanged: false) 不应触发 SettingsSaved 事件");
+
+        await settingsService.SaveAsync(notifySettingsChanged: true);
+        Assert.True(raised, "SaveAsync(notifySettingsChanged: true) 应当触发 SettingsSaved 事件");
+    }
+
+    [Fact]
+    public void ModCardViewModel_RefreshFrom_DoesNotRecreateTagsCollection_WhenTagsUnchanged()
+    {
+        var local = new LocalModBuilder("testmod", "1.0.0").Build();
+        var remote = new TufMod
+        {
+            Slug = "testmod",
+            Name = "TestMod",
+            Version = "1.0.0",
+            Tags = new List<TufTag>
+            {
+                new() { Id = 1, Name = "Gameplay" },
+                new() { Id = 2, Name = "Visual" }
+            }
+        };
+
+        var (vm, _, _) = Create(new[] { local }, new[] { remote });
+        var card = new ModCardViewModel(vm, remote, local);
+        var tagsBefore = card.Tags;
+
+        card.RefreshFrom(local);
+
+        Assert.Same(tagsBefore, card.Tags);
+    }
+
+    [Fact]
+    public void ModsPageViewModel_OnSettingsSaved_DispatchesToDispatcher()
+    {
+        var dispatcher = new RecordingDispatcher();
+        var (vm, _, _, settings, _) = CreateFull(Array.Empty<LocalMod>(), Array.Empty<TufMod>(), dispatcher: dispatcher);
+
+        Assert.Equal(0, dispatcher.EnqueueCallCount);
+        settings.NotifySettingsChanged();
+        Assert.True(dispatcher.EnqueueCallCount > 0, "SettingsSaved 触发时必须通过 IDispatcherService 调度到 UI 线程");
+    }
+
+    [Fact]
+    public async Task RunPrimary_WhenInstalled_PassesForceReinstall()
+    {
+        var local = new LocalModBuilder("testmod", "1.0.0").Build();
+        var remote = new TufMod { Slug = "testmod", Name = "TestMod", Version = "1.0.0" };
+        var lifecycle = new FakeLifecycle();
+
+        var (vm, _, _, _, _) = CreateFull(new[] { local }, new[] { remote }, lifecycle: lifecycle);
+        await vm.InitializeAsync();
+
+        var card = vm.BrowseCards.First(c => c.Slug == "testmod");
+        Assert.Equal(UiStrings.ActionReinstall, card.PrimaryButtonText);
+
+        await vm.RunPrimaryAsync(card);
+
+        Assert.True(lifecycle.LastForceReinstall, "点击'重新安装'时应将 forceReinstall 设置为 true");
+    }
+
+    [Fact]
+    public async Task RunPrimary_WhenNotInstalled_PassesForceReinstallFalse()
+    {
+        var remote = new TufMod { Slug = "newmod", Name = "NewMod", Version = "1.0.0" };
+        var lifecycle = new FakeLifecycle();
+
+        var (vm, _, _, _, _) = CreateFull(Array.Empty<LocalMod>(), new[] { remote }, lifecycle: lifecycle);
+        await vm.InitializeAsync();
+
+        var card = vm.BrowseCards.First(c => c.Slug == "newmod");
+        Assert.Equal(UiStrings.ActionInstall, card.PrimaryButtonText);
+
+        await vm.RunPrimaryAsync(card);
+
+        Assert.False(lifecycle.LastForceReinstall, "新安装 Mod 时 forceReinstall 应为 false");
+    }
+
+    [Fact]
+    public async Task WhenGameRootConfiguredAfterInitialEmpty_RescanRefreshesInstalledAndBrowseCards()
+    {
+        var local = new LocalModBuilder("adofaitweaks", "2.8.0").Build();
+        var remote = new TufMod { Slug = "adofaitweaks", Name = "AdofaiTweaks", Version = "2.9.3" };
+
+        var (vm, _, _, settings, _, steam) = CreateFullWithSteam(
+            new[] { local },
+            new[] { remote },
+            gameRoot: "",
+            isValidGameRoot: false);
+
+        await vm.InitializeAsync();
+
+        // 初始状态：未设置游戏目录，已安装列表为空，卡片操作被禁用
+        Assert.False(vm.HasGameRoot);
+        Assert.True(vm.IsGameRootMissing);
+        Assert.Empty(vm.InstalledCards);
+        var card = Assert.Single(vm.BrowseCards);
+        Assert.Equal(UiStrings.StatusNotInstalled, card.StatusBadge);
+        Assert.False(card.CanPrimary);
+
+        // 用户在设置中配置有效游戏目录
+        steam.IsValid = true;
+        settings.State.Settings.GameRoot = @"C:\Games\ADOFAI";
+
+        // 触发重新扫描（模拟设置保存或页面切换）
+        vm.RefreshGameRootState();
+        await vm.RescanAsync();
+
+        // 验证：已安装列表已刷新出 Mod，卡片状态更新，操作恢复可用
+        Assert.True(vm.HasGameRoot);
+        Assert.False(vm.IsGameRootMissing);
+        Assert.Single(vm.InstalledCards);
+        Assert.Equal(UiStrings.StatusUpdateAvailable, card.StatusBadge);
+        Assert.True(card.CanPrimary);
+        Assert.Equal(UiStrings.ActionUpdate, card.PrimaryButtonText);
+    }
+
+    [Fact]
+    public async Task SettingsSaved_TriggersRescan_AndRefreshesCardsAutomatically()
+    {
+        var local = new LocalModBuilder("adofaitweaks", "2.8.0").Build();
+        var remote = new TufMod { Slug = "adofaitweaks", Name = "AdofaiTweaks", Version = "2.9.3" };
+
+        var (vm, _, _, settings, _, steam) = CreateFullWithSteam(
+            new[] { local },
+            new[] { remote },
+            gameRoot: "",
+            isValidGameRoot: false);
+
+        await vm.InitializeAsync();
+        Assert.Empty(vm.InstalledCards);
+
+        // 设置游戏目录并通过 SaveAsync 保存（触发 SettingsSaved 事件）
+        steam.IsValid = true;
+        settings.State.Settings.GameRoot = @"C:\Games\ADOFAI";
+        await settings.SaveAsync();
+
+        // 验证已自动刷新
+        Assert.True(vm.HasGameRoot);
+        Assert.False(vm.IsGameRootMissing);
+        Assert.Single(vm.InstalledCards);
+        var card = Assert.Single(vm.BrowseCards);
+        Assert.Equal(UiStrings.StatusUpdateAvailable, card.StatusBadge);
+        Assert.True(card.CanPrimary);
+    }
+
     // ───────── 构造辅助 ─────────
 
     private sealed class LocalModBuilder
@@ -319,8 +481,13 @@ public class ModsPageViewModelTests
 
     private sealed class FakeLifecycle : IModLifecycleService
     {
-        public Task<OperationResult> InstallLatestAsync(TufMod remote, bool forceWhenGameRunning = false, IProgress<InstallProgress>? progress = null, CancellationToken ct = default)
-            => Task.FromResult(OperationResult.Ok());
+        public bool LastForceReinstall { get; private set; }
+
+        public Task<OperationResult> InstallLatestAsync(TufMod remote, bool forceWhenGameRunning = false, IProgress<InstallProgress>? progress = null, bool forceReinstall = false, CancellationToken ct = default)
+        {
+            LastForceReinstall = forceReinstall;
+            return Task.FromResult(OperationResult.Ok());
+        }
 
         public Task<OperationResult> UpdateAsync(LocalMod local, TufMod remote, bool forceWhenGameRunning = false, IProgress<InstallProgress>? progress = null, CancellationToken ct = default)
             => Task.FromResult(OperationResult.Ok());
@@ -333,6 +500,23 @@ public class ModsPageViewModelTests
 
         public Task<OperationResult> InstallZipAsync(string zipPath, IProgress<InstallProgress>? progress = null, CancellationToken ct = default)
             => Task.FromResult(OperationResult.Ok());
+    }
+
+    private sealed class RecordingDispatcher : IDispatcherService
+    {
+        public int EnqueueCallCount { get; private set; }
+
+        public void Enqueue(Action action)
+        {
+            EnqueueCallCount++;
+            action();
+        }
+
+        public Task EnqueueAsync(Func<Task> action)
+        {
+            EnqueueCallCount++;
+            return action();
+        }
     }
 
     private sealed class FakeCache : IDiskCacheService
@@ -368,17 +552,17 @@ public class ModsPageViewModelTests
 
     private sealed class FakeSteam : ISteamLocatorService
     {
-        private readonly bool _isValid;
+        public bool IsValid { get; set; }
 
-        public FakeSteam(bool isValid = true) => _isValid = isValid;
+        public FakeSteam(bool isValid = true) => IsValid = isValid;
 
         public Task<GameLocatorResult> LocateAsync(CancellationToken ct = default)
-            => Task.FromResult(new GameLocatorResult { Found = _isValid, GameRoot = @"C:\Games\ADOFAI" });
+            => Task.FromResult(new GameLocatorResult { Found = IsValid, GameRoot = @"C:\Games\ADOFAI" });
 
         public Task<GameLocatorResult> ValidateAsync(string? gameRoot, CancellationToken ct = default)
-            => Task.FromResult(new GameLocatorResult { Found = _isValid, GameRoot = gameRoot ?? string.Empty });
+            => Task.FromResult(new GameLocatorResult { Found = IsValid, GameRoot = gameRoot ?? string.Empty });
 
-        public bool IsValidGameRoot(string? gameRoot) => _isValid && !string.IsNullOrWhiteSpace(gameRoot);
+        public bool IsValidGameRoot(string? gameRoot) => IsValid && !string.IsNullOrWhiteSpace(gameRoot);
     }
 
     private sealed class FakeNav : INavigationService

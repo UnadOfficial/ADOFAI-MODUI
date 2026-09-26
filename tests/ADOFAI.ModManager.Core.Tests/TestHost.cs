@@ -64,9 +64,14 @@ public static class TestHost
 
         public void NotifySettingsChanged() => SettingsSaved?.Invoke(this, EventArgs.Empty);
 
-        public Task SaveAsync(CancellationToken ct = default)
+        public Task SaveAsync(CancellationToken ct = default) => SaveAsync(notifySettingsChanged: true, ct);
+
+        public Task SaveAsync(bool notifySettingsChanged, CancellationToken ct = default)
         {
-            NotifySettingsChanged();
+            if (notifySettingsChanged)
+            {
+                NotifySettingsChanged();
+            }
             return Task.CompletedTask;
         }
     }

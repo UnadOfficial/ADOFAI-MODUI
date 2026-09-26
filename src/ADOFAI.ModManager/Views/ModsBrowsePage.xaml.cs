@@ -28,6 +28,7 @@ public sealed partial class ModsBrowsePage : Page
     {
         base.OnNavigatedTo(e);
         ViewModel.RefreshGameRootState();
+        _ = ViewModel.RescanCommand.ExecuteAsync(null);
     }
 
     private void Notice_CloseClick(InfoBar sender, object args)

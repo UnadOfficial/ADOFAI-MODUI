@@ -95,6 +95,7 @@ public partial class App : Application
         services.AddSingleton<IModLifecycleService, ModLifecycleService>();
 
         // ── UI 服务抽象实现 ──
+        services.AddSingleton<IDispatcherService, WinUiDispatcherService>();
         services.AddSingleton<UiServiceHost>();
         services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<UiServiceHost>());
         services.AddSingleton<IFilePickerService>(sp => sp.GetRequiredService<UiServiceHost>());

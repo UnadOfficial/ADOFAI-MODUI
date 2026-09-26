@@ -16,7 +16,7 @@ public interface IModLifecycleService
 {
     /// <summary>安装远端 Mod 的最新版本（已安装且非降级时自动转为更新路径）。</summary>
     Task<OperationResult> InstallLatestAsync(TufMod remote, bool forceWhenGameRunning = false,
-        IProgress<InstallProgress>? progress = null, CancellationToken ct = default);
+        IProgress<InstallProgress>? progress = null, bool forceReinstall = false, CancellationToken ct = default);
 
     /// <summary>更新已安装的本地 Mod 到远端最新版本。</summary>
     Task<OperationResult> UpdateAsync(LocalMod local, TufMod remote, bool forceWhenGameRunning = false,
@@ -64,15 +64,15 @@ public sealed class ModLifecycleService : IModLifecycleService
 
     public async Task<OperationResult> InstallLatestAsync(
         TufMod remote, bool forceWhenGameRunning = false,
-        IProgress<InstallProgress>? progress = null, CancellationToken ct = default)
+        IProgress<InstallProgress>? progress = null, bool forceReinstall = false, CancellationToken ct = default)
     {
         try
         {
-            // 已安装的相同/更高版本 → 无需安装
+            // 已安装的相同/更高版本且未要求强制重装 → 无需安装
             var snapshot = await _localMods.ScanAsync(ct).ConfigureAwait(false);
             var local = FindLinked(snapshot, remote);
 
-            if (local?.Info is not null && !local.Disabled)
+            if (!forceReinstall && local?.Info is not null && !local.Disabled)
             {
                 var remoteVersion = ParseVersion(remote.EffectiveVersion);
                 var localVersion = local.LocalVersion;
@@ -110,7 +110,7 @@ public sealed class ModLifecycleService : IModLifecycleService
         {
             var trash = await _localMods.UninstallAsync(local.DirectoryPath, ct).ConfigureAwait(false);
             ForgetInstallRecord(local);
-            await _settings.SaveAsync(ct).ConfigureAwait(false);
+            await _settings.SaveAsync(notifySettingsChanged: false, ct).ConfigureAwait(false);
             return OperationResult.Ok($"已卸载《{local.DisplayName}》。\n（备份位置：{trash}）");
         }).ConfigureAwait(false);
 
@@ -278,7 +278,7 @@ public sealed class ModLifecycleService : IModLifecycleService
             });
         }
 
-        await _settings.SaveAsync(ct).ConfigureAwait(false);
+        await _settings.SaveAsync(notifySettingsChanged: false, ct).ConfigureAwait(false);
     }
 
     private void ForgetInstallRecord(LocalMod local)

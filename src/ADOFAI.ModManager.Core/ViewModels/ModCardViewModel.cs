@@ -131,7 +131,11 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
 
         IsLocalOnly = Remote is null;
         IsRemote = Remote is not null;
-        Tags = new ObservableCollection<TufTag>(Remote?.Tags ?? new List<TufTag>());
+        var remoteTags = Remote?.Tags ?? (IReadOnlyList<TufTag>)Array.Empty<TufTag>();
+        if (Tags.Count != remoteTags.Count || !Tags.Select(t => t.Id).SequenceEqual(remoteTags.Select(t => t.Id)))
+        {
+            Tags = new ObservableCollection<TufTag>(remoteTags);
+        }
         StatsText = Remote is null ? string.Empty : TextFormatting.FormatStats(Remote.DownloadCount, Remote.Likes);
         UpdatedText = Remote?.SourceUploadedAt is { } t ? $"更新于 {t.ToLocalTime():yyyy-MM-dd}" : string.Empty;
 

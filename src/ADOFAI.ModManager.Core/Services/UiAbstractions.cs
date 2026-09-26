@@ -27,6 +27,22 @@ public interface INavigationService
     void NavigateTo(string tag);
 }
 
+/// <summary>UI 线程调度抽象（保证后台任务安全切回 UI 线程更新 ViewModel/集合）。</summary>
+public interface IDispatcherService
+{
+    void Enqueue(Action action);
+    Task EnqueueAsync(Func<Task> action);
+}
+
+/// <summary>同步调度器（测试与无 UI 环境兜底）。</summary>
+public sealed class ImmediateDispatcherService : IDispatcherService
+{
+    public static ImmediateDispatcherService Instance { get; } = new();
+
+    public void Enqueue(Action action) => action();
+    public Task EnqueueAsync(Func<Task> action) => action();
+}
+
 /// <summary>用系统浏览器打开链接。</summary>
 public static class Browser
 {
@@ -42,3 +58,4 @@ public static class Browser
         }
     }
 }
+

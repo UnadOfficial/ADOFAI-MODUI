@@ -16,6 +16,8 @@ public interface ISettingsService
 
     Task SaveAsync(CancellationToken ct = default);
 
+    Task SaveAsync(bool notifySettingsChanged, CancellationToken ct = default);
+
     /// <summary>数据目录（%LOCALAPPDATA%\ADOFAI.ModManager）。</summary>
     string DataDirectory { get; }
 
@@ -90,7 +92,9 @@ public sealed class SettingsService : ISettingsService, IDisposable
 
     public void NotifySettingsChanged() => SettingsSaved?.Invoke(this, EventArgs.Empty);
 
-    public async Task SaveAsync(CancellationToken ct = default)
+    public Task SaveAsync(CancellationToken ct = default) => SaveAsync(notifySettingsChanged: true, ct);
+
+    public async Task SaveAsync(bool notifySettingsChanged, CancellationToken ct = default)
     {
         Directory.CreateDirectory(DataDirectory);
         var tmp = _stateFilePath + ".tmp";
@@ -110,6 +114,9 @@ public sealed class SettingsService : ISettingsService, IDisposable
             _ioLock.Release();
         }
 
-        NotifySettingsChanged();
+        if (notifySettingsChanged)
+        {
+            NotifySettingsChanged();
+        }
     }
 }

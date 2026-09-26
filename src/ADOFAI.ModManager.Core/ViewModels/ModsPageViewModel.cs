@@ -41,6 +41,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     private readonly ISettingsService _settings;
     private readonly ISteamLocatorService _steam;
     private readonly INavigationService _nav;
+    private readonly IDispatcherService _dispatcher;
     private readonly ILogger<ModsPageViewModel> _logger;
 
     private readonly SemaphoreSlim _downloadSlots;
@@ -58,7 +59,8 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         ISettingsService settings,
         ISteamLocatorService steam,
         INavigationService nav,
-        ILogger<ModsPageViewModel> logger)
+        ILogger<ModsPageViewModel> logger,
+        IDispatcherService? dispatcher = null)
     {
         _tuf = tuf;
         _local = local;
@@ -69,6 +71,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         _steam = steam;
         _nav = nav;
         _logger = logger;
+        _dispatcher = dispatcher ?? ImmediateDispatcherService.Instance;
 
         _settings.SettingsSaved += OnSettingsSaved;
 
@@ -163,29 +166,66 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         await LoadCatalogAsync(forceRefresh: true).ConfigureAwait(true);
     }
 
-    /// <summary>仅重新扫描本地 Mods 目录。</summary>
+    /// <summary>重新扫描本地 Mods 目录并刷新卡片状态与筛选。</summary>
     [RelayCommand]
     public async Task RescanAsync()
     {
-        if (!HasGameRoot)
+        IsRefreshing = true;
+        try
         {
-            _lastScan[0] = null;
-            InstalledCards.Clear();
-            foreach (var card in _allCards)
+            if (!HasGameRoot)
             {
-                card.AttachLocal(null);
+                _lastScan[0] = null;
+                InstalledCards.Clear();
+                _allCards.RemoveAll(c => c.Remote is null);
+                foreach (var card in _allCards)
+                {
+                    card.AttachLocal(null);
+                }
+
+                RebuildTagFilter();
+                ApplyFilters();
+                return;
             }
 
-            ApplyFilters();
-            return;
-        }
+            await RescanLocalAsync().ConfigureAwait(true);
 
-        await RescanLocalAsync().ConfigureAwait(true);
-        ApplyFilters();
+            IReadOnlyList<TufMod> remotes;
+            try
+            {
+                var snapshot = await _tuf.GetCatalogAsync(forceRefresh: false).ConfigureAwait(true);
+                remotes = snapshot.Mods;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "重新扫描时获取远端目录失败，回退到当前已加载的卡片");
+                remotes = _allCards.Where(c => c.Remote is not null).Select(c => c.Remote!).ToList();
+            }
+
+            if (remotes.Count == 0 && _allCards.Any(c => c.Remote is not null))
+            {
+                remotes = _allCards.Where(c => c.Remote is not null).Select(c => c.Remote!).ToList();
+            }
+
+            MergeCards(remotes);
+            RebuildTagFilter();
+            ApplyFilters();
+            LoadIcons();
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
     }
 
     private async Task RescanLocalAsync()
     {
+        if (!HasGameRoot)
+        {
+            _lastScan[0] = null;
+            return;
+        }
+
         try
         {
             _lastScan[0] = await _local.ScanAsync().ConfigureAwait(true);
@@ -225,8 +265,6 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     /// <summary>异步加载卡片图标（磁盘缓存；失败用占位符兜底）。结果回投到 UI 线程更新绑定。</summary>
     private void LoadIcons()
     {
-        var ui = SynchronizationContext.Current;
-
         foreach (var card in _allCards)
         {
             var url = card.Remote?.ImageUrl;
@@ -241,20 +279,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
                 try
                 {
                     var path = await _cache.FetchToCacheAsync("icons", slug, url).ConfigureAwait(false);
-                    void Apply()
-                    {
-                        // 图标可能已被后续刷新替换，仅更新仍然存在的实例
-                        card.IconPath = path;
-                    }
-
-                    if (ui is not null)
-                    {
-                        ui.Post(_ => Apply(), null);
-                    }
-                    else
-                    {
-                        Apply();
-                    }
+                    _dispatcher.Enqueue(() => card.IconPath = path);
                 }
                 catch (Exception)
                 {
@@ -280,8 +305,11 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
-        RefreshGameRootState();
-        _ = RescanAsync();
+        _dispatcher.Enqueue(() =>
+        {
+            RefreshGameRootState();
+            _ = RescanAsync();
+        });
     }
 
     // ───────── 合并远端 + 本地 ─────────
@@ -509,7 +537,8 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await InstallOrUpdateAsync(card).ConfigureAwait(true);
+        var forceReinstall = card.PrimaryButtonText == UiStrings.ActionReinstall;
+        await InstallOrUpdateAsync(card, forceReinstall).ConfigureAwait(true);
     }
 
     public async Task RunSecondaryAsync(ModCardViewModel card)
@@ -535,7 +564,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task InstallOrUpdateAsync(ModCardViewModel card)
+    private async Task InstallOrUpdateAsync(ModCardViewModel card, bool forceReinstall = false)
     {
         if (card.Remote is null || card.IsBusy)
         {
@@ -564,7 +593,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
                 card.SetState(PhaseToState(p.Phase), p.Percent, p.Detail ?? string.Empty);
             });
 
-            var result = await _lifecycle.InstallLatestAsync(card.Remote, forceWhenGameRunning: false, progress, cts.Token)
+            var result = await _lifecycle.InstallLatestAsync(card.Remote, forceWhenGameRunning: false, progress, forceReinstall, cts.Token)
                 .ConfigureAwait(true);
 
             if (result.Status == ResultStatus.Warning && result.Payload == "GameRunning")
@@ -573,7 +602,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
                 if (await _dialogs.ConfirmAsync("游戏正在运行", UiStrings.GameRunningWarning, "仍要继续", "取消")
                         .ConfigureAwait(true))
                 {
-                    await InstallOrUpdateForcedAsync(card).ConfigureAwait(true);
+                    await InstallOrUpdateForcedAsync(card, forceReinstall).ConfigureAwait(true);
                 }
 
                 return;
@@ -627,7 +656,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task InstallOrUpdateForcedAsync(ModCardViewModel card)
+    private async Task InstallOrUpdateForcedAsync(ModCardViewModel card, bool forceReinstall = false)
     {
         if (card.Remote is null)
         {
@@ -647,7 +676,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
             var progress = new Progress<InstallProgress>(p =>
                 card.SetState(PhaseToState(p.Phase), p.Percent, p.Detail ?? string.Empty));
 
-            var result = await _lifecycle.InstallLatestAsync(card.Remote, forceWhenGameRunning: true, progress, cts.Token)
+            var result = await _lifecycle.InstallLatestAsync(card.Remote, forceWhenGameRunning: true, progress, forceReinstall, cts.Token)
                 .ConfigureAwait(true);
 
             if (result.Status == ResultStatus.Error)
@@ -846,11 +875,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     private async Task AfterMutatingOperationAsync()
     {
-        await RescanLocalAsync().ConfigureAwait(true);
-        MergeCards((await _tuf.GetCatalogAsync(false).ConfigureAwait(true)).Mods);
-        RebuildTagFilter();
-        ApplyFilters();
-        LoadIcons();
+        await RescanAsync().ConfigureAwait(true);
         LoadHistory();
     }
 
