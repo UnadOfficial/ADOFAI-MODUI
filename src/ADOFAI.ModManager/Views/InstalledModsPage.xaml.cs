@@ -26,11 +26,6 @@ public sealed partial class InstalledModsPage : Page
         _ = ViewModel.RescanCommand.ExecuteAsync(null);
     }
 
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs args)
-    {
-        ViewModel.SearchText = SearchBox.Text;
-    }
-
     private void Notice_CloseClick(InfoBar sender, object args)
     {
         ViewModel.NoticeOpen = false;

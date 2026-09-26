@@ -37,9 +37,19 @@ public partial class DownloadsViewModel : ObservableObject
     [RelayCommand]
     public void NavigateToSettings() => _mods.NavigateToSettings();
 
+    [RelayCommand]
+    public Task ClearHistoryAsync()
+    {
+        var task = _mods.ClearHistoryAsync();
+        OnPropertyChanged(nameof(HasHistory));
+        return task;
+    }
+
     public ObservableCollection<ModCardViewModel> ActiveItems { get; } = new();
 
     public ObservableCollection<InstallRecord> History => _mods.History;
+
+    public bool HasHistory => History.Count > 0;
 
     private void OnCardStateChanged(object? sender, EventArgs e)
     {

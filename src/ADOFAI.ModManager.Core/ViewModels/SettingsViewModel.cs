@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using ADOFAI.ModManager.Core.Helpers;
 using ADOFAI.ModManager.Core.Models.Game;
@@ -38,7 +39,38 @@ public partial class SettingsViewModel : ObservableObject
         _checkGameProcess = s.CheckGameProcess;
         _maxParallelDownloads = s.MaxParallelDownloads;
         _gamePathStatus = string.IsNullOrEmpty(s.GameRoot) ? "尚未设置游戏目录" : "已设置";
+        _selectedTheme = s.Theme switch
+        {
+            "Light" => "浅色模式",
+            "Dark" => "深色模式",
+            _ => "跟随系统",
+        };
     }
+
+    public ObservableCollection<string> ThemeOptions { get; } = new()
+    {
+        "跟随系统",
+        "浅色模式",
+        "深色模式"
+    };
+
+    [ObservableProperty]
+    private string _selectedTheme;
+
+    partial void OnSelectedThemeChanged(string value)
+    {
+        var themeKey = value switch
+        {
+            "浅色模式" => "Light",
+            "深色模式" => "Dark",
+            _ => "Default",
+        };
+        _settings.State.Settings.Theme = themeKey;
+        _ = _settings.SaveAsync();
+        ThemeChanged?.Invoke(themeKey);
+    }
+
+    public static event Action<string>? ThemeChanged;
 
     [ObservableProperty]
     private string _gameRoot;
@@ -162,4 +194,36 @@ public partial class SettingsViewModel : ObservableObject
             GamePathStatus = "未找到有效游戏目录";
         }
     }
+
+    [RelayCommand]
+    public void OpenDataFolder()
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADOFAI.ModManager");
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    public void OpenLogsFolder()
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADOFAI.ModManager", "logs");
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    public void OpenTrashFolder()
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADOFAI.ModManager", "trash");
+        Directory.CreateDirectory(path);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    public void OpenGitHub() => Browser.Open("https://github.com/UnadOfficial/ADOFAI-MODUI");
+
+    [RelayCommand]
+    public void OpenTuforums() => Browser.Open("https://tuforums.com/mods");
+
+    public string AppVersion => "1.0.0";
 }

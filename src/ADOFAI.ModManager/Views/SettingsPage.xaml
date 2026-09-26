@@ -119,7 +119,35 @@
                     </StackPanel>
                 </Border>
 
-                <TextBlock Text="维护" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+                <!--  外观与个性化  -->
+                <TextBlock Text="外观与个性化" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+                <Border
+                    CornerRadius="8"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="16">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="应用主题" FontSize="13" />
+                            <TextBlock
+                                Text="选择应用的主题外观（浅色、深色或跟随 Windows 系统）"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ComboBox
+                            Grid.Column="1"
+                            ItemsSource="{x:Bind ViewModel.ThemeOptions, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedTheme, Mode=TwoWay}"
+                            MinWidth="140" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="维护与数据" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
 
                 <!--  维护卡片  -->
                 <Border
@@ -128,18 +156,86 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     Padding="16">
-                    <StackPanel Spacing="10">
-                        <Button Command="{x:Bind ViewModel.ClearCacheCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                                <TextBlock Text="清理缓存（Mod 目录快照 / 图标 / 下载包）" />
-                            </StackPanel>
-                        </Button>
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Command="{x:Bind ViewModel.ClearCacheCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                    <TextBlock Text="清理缓存（目录快照 / 图标 / 下载包）" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Command="{x:Bind ViewModel.OpenDataFolderCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE838;" FontSize="14" />
+                                    <TextBlock Text="打开数据目录" />
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{x:Bind ViewModel.OpenLogsFolderCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE8C4;" FontSize="14" />
+                                    <TextBlock Text="打开日志文件夹" />
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{x:Bind ViewModel.OpenTrashFolderCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                    <TextBlock Text="打开卸载备份箱" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
                         <TextBlock
-                            Text="数据目录：%LOCALAPPDATA%\ADOFAI.ModManager（设置、缓存、日志与卸载备份均在此目录）"
+                            Text="应用数据目录位于：%LOCALAPPDATA%\ADOFAI.ModManager"
                             FontSize="12"
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!--  关于卡片  -->
+                <TextBlock Text="关于" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+                <Border
+                    CornerRadius="8"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="16">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9F5;" FontSize="32" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Spacing="3">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="ADOFAI Mod 管理器" FontSize="15" FontWeight="SemiBold" />
+                                    <Border CornerRadius="4" Padding="6,1" Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                        <TextBlock Text="{x:Bind ViewModel.AppVersion}" FontSize="11" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="基于 WinUI 3 与 .NET 8 构建的《冰与火之舞》现代化开源 Mod 管理器，对接 Tuforums 社区与 UMM 规范。"
+                                           FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Command="{x:Bind ViewModel.OpenGitHubCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE71B;" FontSize="14" />
+                                    <TextBlock Text="GitHub 开源仓库" />
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{x:Bind ViewModel.OpenTuforumsCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE774;" FontSize="14" />
+                                    <TextBlock Text="Tuforums Mod 目录" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -151,7 +247,7 @@
                     Message="{x:Bind ViewModel.Notice, Mode=OneWay}" />
 
                 <TextBlock
-                    Text="ADOFAI-MODUI · 开源（Apache-2.0） · 数据来源：Tuforums 公共 API"
+                    Text="Apache License 2.0 开源许可 · 数据来源：Tuforums 公共 API 与本地扫描"
                     FontSize="12"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                     Margin="0,4" />

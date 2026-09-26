@@ -169,7 +169,6 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <Button
@@ -191,28 +190,68 @@
 
                 <Button
                     Grid.Column="3"
-                    Command="{x:Bind ViewModel.OpenLocalFolderCommand, Mode=OneWay}"
-                    ToolTipService.ToolTip="打开 Mod 目录"
-                    Background="Transparent" BorderThickness="0" Padding="6"
-                    Visibility="{x:Bind ViewModel.IsLocalOnly, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
-                    <FontIcon Glyph="&#xE838;" FontSize="15" />
+                    Command="{x:Bind ViewModel.ShowDetailsCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="查看详情"
+                    Background="Transparent" BorderThickness="0" Padding="8,6">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE946;" FontSize="14" />
+                        <TextBlock Text="详情" FontSize="12" />
+                    </StackPanel>
                 </Button>
 
+                <!-- 更多操作菜单 -->
                 <Button
                     Grid.Column="4"
-                    Command="{x:Bind ViewModel.OpenTufPageCommand, Mode=OneWay}"
-                    ToolTipService.ToolTip="在 Tuforums 打开"
-                    Background="Transparent" BorderThickness="0" Padding="6"
-                    Visibility="{x:Bind ViewModel.IsRemote, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
-                    <FontIcon Glyph="&#xE774;" FontSize="15" />
-                </Button>
-
-                <Button
-                    Grid.Column="5"
-                    Command="{x:Bind ViewModel.ShowDetailsCommand, Mode=OneWay}"
-                    ToolTipService.ToolTip="详情"
-                    Background="Transparent" BorderThickness="0" Padding="6">
-                    <FontIcon Glyph="&#xE946;" FontSize="15" />
+                    ToolTipService.ToolTip="更多操作"
+                    Background="Transparent" BorderThickness="0" Padding="8,6">
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="查看详情" Command="{x:Bind ViewModel.ShowDetailsCommand, Mode=OneWay}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE946;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="打开本地目录"
+                                            Command="{x:Bind ViewModel.OpenLocalFolderCommand, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE838;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="在 Tuforums 查看"
+                                            Command="{x:Bind ViewModel.OpenTufPageCommand, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsRemote, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE774;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="访问项目主页"
+                                            Command="{x:Bind ViewModel.OpenProjectPageCommand, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.HasProjectUrl, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE71B;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutSeparator Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+                            <MenuFlyoutItem Text="重新安装"
+                                            Command="{x:Bind ViewModel.ReinstallActionCommand, Mode=OneWay}"
+                                            IsEnabled="{x:Bind ViewModel.CanReinstall, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE777;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="卸载 Mod"
+                                            Command="{x:Bind ViewModel.UninstallActionCommand, Mode=OneWay}"
+                                            IsEnabled="{x:Bind ViewModel.CanUninstall, Mode=OneWay}"
+                                            Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE74D;" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                    <FontIcon Glyph="&#xE712;" FontSize="15" />
                 </Button>
             </Grid>
         </Grid>

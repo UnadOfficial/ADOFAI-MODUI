@@ -6,19 +6,19 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48" />
+            <RowDefinition Height="40" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!--  自定义标题栏（ExtendsContentIntoTitleBar）  -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Background="Transparent">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0" Spacing="10">
-                <FontIcon Glyph="&#xE9F5;" FontSize="16" />
+                <FontIcon Glyph="&#xE9F5;" FontSize="15" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                 <TextBlock x:Name="AppTitleText"
                            x:Uid="AppTitle"
                            Text="ADOFAI Mod 管理器"
                            VerticalAlignment="Center"
-                           FontSize="13"
+                           FontSize="12"
                            FontWeight="SemiBold" />
             </StackPanel>
         </Grid>
@@ -29,7 +29,7 @@
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="False"
             PaneDisplayMode="Left"
-            OpenPaneLength="200"
+            OpenPaneLength="210"
             SelectionChanged="NavView_SelectionChanged">
 
             <muxc:NavigationView.MenuItems>
@@ -38,22 +38,31 @@
                         <FontIcon Glyph="&#xE8F1;" />
                     </muxc:NavigationViewItem.Icon>
                 </muxc:NavigationViewItem>
-                <muxc:NavigationViewItem x:Uid="Nav_Installed" Tag="installed">
+                <muxc:NavigationViewItem x:Name="NavInstalledItem" x:Uid="Nav_Installed" Tag="installed">
                     <muxc:NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE8B7;" />
                     </muxc:NavigationViewItem.Icon>
+                    <muxc:NavigationViewItem.InfoBadge>
+                        <muxc:InfoBadge x:Name="InstalledUpdatesBadge" Visibility="Collapsed" Style="{ThemeResource AttentionValueInfoBadgeStyle}" />
+                    </muxc:NavigationViewItem.InfoBadge>
                 </muxc:NavigationViewItem>
-                <muxc:NavigationViewItem x:Uid="Nav_Downloads" Tag="downloads">
+                <muxc:NavigationViewItem x:Name="NavDownloadsItem" x:Uid="Nav_Downloads" Tag="downloads">
                     <muxc:NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE896;" />
                     </muxc:NavigationViewItem.Icon>
+                    <muxc:NavigationViewItem.InfoBadge>
+                        <muxc:InfoBadge x:Name="ActiveDownloadsBadge" Visibility="Collapsed" />
+                    </muxc:NavigationViewItem.InfoBadge>
                 </muxc:NavigationViewItem>
+            </muxc:NavigationView.MenuItems>
+
+            <muxc:NavigationView.FooterMenuItems>
                 <muxc:NavigationViewItem x:Uid="Nav_Settings" Tag="settings">
                     <muxc:NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;" />
                     </muxc:NavigationViewItem.Icon>
                 </muxc:NavigationViewItem>
-            </muxc:NavigationView.MenuItems>
+            </muxc:NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame" />
         </muxc:NavigationView>

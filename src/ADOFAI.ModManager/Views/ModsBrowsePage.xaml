@@ -52,7 +52,8 @@
         <!--  ── 过滤行 ──  -->
         <Grid Grid.Row="1" ColumnSpacing="8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="360" />
+                <ColumnDefinition Width="*" MaxWidth="320" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -67,19 +68,25 @@
 
             <ComboBox
                 Grid.Column="1"
-                MinWidth="140"
+                MinWidth="130"
                 ItemsSource="{x:Bind ViewModel.AvailableTags, Mode=OneWay}"
                 SelectedItem="{x:Bind ViewModel.SelectedTag, Mode=TwoWay}"
                 PlaceholderText="全部标签" />
 
             <ComboBox
                 Grid.Column="2"
-                MinWidth="140"
+                MinWidth="120"
                 ItemsSource="{x:Bind ViewModel.StatusOptions, Mode=OneWay}"
                 SelectedItem="{x:Bind ViewModel.SelectedStatus, Mode=TwoWay}" />
 
-            <ProgressRing
+            <ComboBox
                 Grid.Column="3"
+                MinWidth="120"
+                ItemsSource="{x:Bind ViewModel.SortOptions, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedSort, Mode=TwoWay}" />
+
+            <ProgressRing
+                Grid.Column="4"
                 Width="24" Height="24"
                 IsActive="{x:Bind ViewModel.IsRefreshing, Mode=OneWay}" />
         </Grid>
@@ -105,9 +112,34 @@
                 Message="{x:Bind ViewModel.Notice, Mode=OneWay}" />
         </StackPanel>
 
+        <!--  ── 空状态（搜索无结果）  -->
+        <Border
+            Grid.Row="3"
+            Visibility="{x:Bind ViewModel.IsBrowseEmpty, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            MaxWidth="460"
+            Padding="32"
+            CornerRadius="8"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1">
+            <StackPanel Spacing="14" HorizontalAlignment="Center">
+                <FontIcon Glyph="&#xE721;" FontSize="40" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="未找到匹配的 Mod" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="尝试更换关键词、取消标签筛选，或重置筛选条件。"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Button Content="重置筛选条件"
+                        HorizontalAlignment="Center"
+                        Command="{x:Bind ViewModel.ResetFiltersCommand}" />
+            </StackPanel>
+        </Border>
+
         <!--  ── Mod 卡片列表 ──  -->
         <ListView
             Grid.Row="3"
+            Visibility="{x:Bind ViewModel.IsBrowseEmpty, Mode=OneWay, Converter={StaticResource BoolToCollapsed}}"
             ItemsSource="{x:Bind ViewModel.BrowseCards, Mode=OneWay}"
             SelectionMode="None"
             IsItemClickEnabled="False">

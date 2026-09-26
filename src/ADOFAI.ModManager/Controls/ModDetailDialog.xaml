@@ -5,46 +5,127 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:ADOFAI.ModManager.Core.ViewModels"
+    xmlns:model="using:ADOFAI.ModManager.Core.Models.Tuforums"
     mc:Ignorable="d"
-    Title="{x:Bind ViewModel.Title, Mode=OneWay}"
-    PrimaryButtonText="关闭"
-    DefaultButton="Primary"
+    CloseButtonText="关闭"
+    DefaultButton="Close"
     Style="{ThemeResource DefaultContentDialogStyle}">
 
     <ContentDialog.Resources>
         <ResourceDictionary>
-            <x:Double x:Key="ContentDialogMaxWidth">900</x:Double>
+            <x:Double x:Key="ContentDialogMaxWidth">800</x:Double>
         </ResourceDictionary>
     </ContentDialog.Resources>
 
-    <StackPanel Spacing="12" MinWidth="560">
-        <!--  元信息  -->
-        <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="作者：" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock Text="{x:Bind ViewModel.Author, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
-            <TextBlock Text="状态：" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" />
-            <TextBlock Text="{x:Bind ViewModel.VersionLine, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
+    <StackPanel Spacing="16" MinWidth="580" MaxWidth="720">
+        <!--  ── Hero 头部：图标 + 标题 + 作者 + 状态徽章 ──  -->
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay}"
-                     Visibility="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+            <!-- 图标 -->
+            <Grid Width="64" Height="64" VerticalAlignment="Top">
+                <Ellipse Fill="{ThemeResource ControlFillColorDefaultBrush}" />
+                <Image
+                    Source="{x:Bind ViewModel.Card.IconPath, Mode=OneWay, Converter={StaticResource StringToImageSource}}"
+                    Width="60" Height="60" />
+                <FontIcon
+                    Glyph="&#xE74C;"
+                    FontSize="28"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Visibility="{x:Bind ViewModel.Card.IconPath, Mode=OneWay, Converter={StaticResource NullToVisible}}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
 
-        <!--  描述  -->
-        <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Grid.Column="1" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock
+                        Text="{x:Bind ViewModel.Title, Mode=OneWay}"
+                        FontSize="18"
+                        FontWeight="SemiBold"
+                        TextWrapping="Wrap"
+                        VerticalAlignment="Center" />
+                    <!-- 状态徽章 -->
+                    <Border
+                        CornerRadius="4"
+                        Padding="6,2"
+                        Background="{x:Bind ViewModel.Card.StatusBadgeColor, Mode=OneWay, Converter={StaticResource HexToBrush}}"
+                        VerticalAlignment="Center">
+                        <TextBlock
+                            Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                            FontSize="11"
+                            FontWeight="SemiBold" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <TextBlock FontSize="12">
+                        <Run Text="作者： " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Run Text="{x:Bind ViewModel.Author, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock FontSize="12">
+                        <Run Text="版本： " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Run Text="{x:Bind ViewModel.VersionLine, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- 标签列表 -->
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Card.Tags, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="model:TufTag">
+                            <Border CornerRadius="8" Padding="6,1" Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                <TextBlock Text="{x:Bind Name}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Grid>
+
+        <!-- 进度条（操作中） -->
+        <Grid
+            RowSpacing="4"
+            Visibility="{x:Bind ViewModel.Card.ShowProgress, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ProgressBar
+                Grid.Row="0"
+                Maximum="100"
+                IsIndeterminate="{x:Bind ViewModel.Card.ProgressIndeterminate, Mode=OneWay}"
+                Value="{x:Bind ViewModel.Card.ProgressPercent, Mode=OneWay}" />
             <TextBlock
-                Text="{x:Bind ViewModel.Description, Mode=OneWay}"
-                TextWrapping="Wrap"
-                IsTextSelectionEnabled="True"
-                LineHeight="20"
-                FontSize="13" />
-        </ScrollViewer>
+                Grid.Row="1"
+                Text="{x:Bind ViewModel.Card.ProgressText, Mode=OneWay}"
+                FontSize="11"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
 
-        <!--  本地安装信息  -->
-        <Expander Header="本地安装信息" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="4" Margin="0,8">
+        <!-- 描述 -->
+        <Border Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="12">
+            <ScrollViewer MaxHeight="160" HorizontalScrollBarVisibility="Disabled">
+                <TextBlock
+                    Text="{x:Bind ViewModel.Description, Mode=OneWay}"
+                    TextWrapping="Wrap"
+                    IsTextSelectionEnabled="True"
+                    LineHeight="20"
+                    FontSize="13" />
+            </ScrollViewer>
+        </Border>
+
+        <!-- 本地安装信息 -->
+        <Expander Header="本地安装配置" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="6" Margin="0,8">
                 <TextBlock FontSize="12" TextWrapping="Wrap">
-                    <Run Text="依赖： " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Run Text="依赖项： " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Run Text="{x:Bind ViewModel.RequirementsText, Mode=OneWay}" />
                 </TextBlock>
                 <TextBlock FontSize="12" TextWrapping="Wrap">
@@ -58,33 +139,68 @@
             </StackPanel>
         </Expander>
 
-        <!--  版本历史  -->
-        <Expander Header="版本历史" HorizontalAlignment="Stretch" Expanding="VersionExpander_Expanding">
-            <ListView
-                ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}"
-                MaxHeight="200"
-                SelectionMode="None">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:VersionHistoryItem">
-                        <StackPanel Spacing="2" Margin="0,6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{x:Bind Version}" FontWeight="SemiBold" FontSize="13" />
-                                <TextBlock Text="{x:Bind ReleasedAt}" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+        <!-- 版本历史 -->
+        <Expander Header="版本历史与更新日志" HorizontalAlignment="Stretch" Expanding="VersionExpander_Expanding">
+            <StackPanel Spacing="6">
+                <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay}"
+                             Visibility="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+                <ListView
+                    ItemsSource="{x:Bind ViewModel.Versions, Mode=OneWay}"
+                    MaxHeight="160"
+                    SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VersionHistoryItem">
+                            <StackPanel Spacing="2" Margin="0,6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{x:Bind Version}" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Text="{x:Bind ReleasedAt}" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="{x:Bind Notes}" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
-                            <TextBlock Text="{x:Bind Notes}" FontSize="12" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </StackPanel>
         </Expander>
 
-        <!--  链接  -->
-        <StackPanel Orientation="Horizontal" Spacing="16">
+        <!-- 操作栏 -->
+        <Grid ColumnSpacing="8" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                Grid.Column="0"
+                Content="{x:Bind ViewModel.Card.PrimaryButtonText, Mode=OneWay}"
+                IsEnabled="{x:Bind ViewModel.Card.CanPrimary, Mode=OneWay}"
+                Command="{x:Bind ViewModel.Card.PrimaryActionCommand, Mode=OneWay}"
+                Style="{ThemeResource AccentButtonStyle}"
+                MinWidth="80" />
+
+            <Button
+                Grid.Column="1"
+                Content="{x:Bind ViewModel.Card.SecondaryButtonText, Mode=OneWay}"
+                IsEnabled="{x:Bind ViewModel.Card.CanSecondary, Mode=OneWay}"
+                Command="{x:Bind ViewModel.Card.SecondaryActionCommand, Mode=OneWay}"
+                MinWidth="72"
+                Visibility="{x:Bind ViewModel.Card.SecondaryButtonText, Mode=OneWay, Converter={StaticResource StringNotEmptyToVisible}}" />
+
             <HyperlinkButton
+                Grid.Column="3"
                 Content="在 Tuforums 打开"
                 Click="OpenTufPage_Click"
                 Visibility="{x:Bind ViewModel.TufPageUrl, Mode=OneWay, Converter={StaticResource StringNotEmptyToVisible}}" />
-        </StackPanel>
+
+            <HyperlinkButton
+                Grid.Column="4"
+                Content="打开本地目录"
+                Command="{x:Bind ViewModel.Card.OpenLocalFolderCommand, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.Card.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+        </Grid>
     </StackPanel>
 </ContentDialog>

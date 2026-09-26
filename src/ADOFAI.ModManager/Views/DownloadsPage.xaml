@@ -39,40 +39,83 @@
         </InfoBar>
 
         <!--  ── 进行中的任务（复用卡片，含进度条与取消） ──  -->
-        <ListView
-            Grid.Row="2"
-            ItemsSource="{x:Bind ViewModel.ActiveItems, Mode=OneWay}"
-            SelectionMode="None">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="vm:ModCardViewModel">
-                    <controls:ModCard ViewModel="{x:Bind}" />
-                </DataTemplate>
-            </ListView.ItemTemplate>
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="MinHeight" Value="0" />
-                </Style>
-            </ListView.ItemContainerStyle>
-        </ListView>
+        <Grid Grid.Row="2">
+            <!-- 空状态：无活动任务 -->
+            <Border
+                Visibility="{x:Bind ViewModel.HasActive, Mode=OneWay, Converter={StaticResource BoolToCollapsed}}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Padding="32"
+                CornerRadius="8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <StackPanel Spacing="10" HorizontalAlignment="Center">
+                    <FontIcon Glyph="&#xE896;" FontSize="36" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="暂无进行中的任务" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="当前没有正在下载或安装的 Mod。" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <ListView
+                Visibility="{x:Bind ViewModel.HasActive, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
+                ItemsSource="{x:Bind ViewModel.ActiveItems, Mode=OneWay}"
+                SelectionMode="None">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ModCardViewModel">
+                        <controls:ModCard ViewModel="{x:Bind}" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="MinHeight" Value="0" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+            </ListView>
+        </Grid>
 
         <!--  ── 历史记录 ──  -->
         <StackPanel Grid.Row="3" Spacing="8">
-            <TextBlock Text="安装历史" FontSize="16" FontWeight="SemiBold" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="安装历史" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Command="{x:Bind ViewModel.ClearHistoryCommand}"
+                        IsEnabled="{x:Bind ViewModel.HasHistory, Mode=OneWay}"
+                        Padding="8,4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE74D;" FontSize="13" />
+                        <TextBlock Text="清空历史" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <TextBlock
+                Visibility="{x:Bind ViewModel.HasHistory, Mode=OneWay, Converter={StaticResource BoolToCollapsed}}"
+                Text="暂无安装历史记录。"
+                FontSize="12"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Margin="4,8" />
+
             <ListView
+                Visibility="{x:Bind ViewModel.HasHistory, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
                 ItemsSource="{x:Bind ViewModel.History, Mode=OneWay}"
                 SelectionMode="None"
-                MaxHeight="220">
+                MaxHeight="200">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="app:InstallRecord">
-                        <Grid ColumnSpacing="12" Padding="4">
+                        <Grid ColumnSpacing="12" Padding="6,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE896;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <FontIcon Glyph="&#xE896;" FontSize="14" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                             <TextBlock Grid.Column="1" Text="{x:Bind LocalId}" FontSize="13" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="2" Text="{x:Bind Summary}" FontSize="12"
                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />

@@ -20,6 +20,9 @@ public sealed class AppSettings
 
     /// <summary>目录缓存有效期（分钟）。</summary>
     public int CatalogCacheTtlMinutes { get; set; } = 30;
+
+    /// <summary>界面主题：Default / Light / Dark。</summary>
+    public string Theme { get; set; } = "Default";
 }
 
 /// <summary>本地 Mod ↔ Tuforums slug 的持久化关联。</summary>

@@ -108,6 +108,14 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
 
     // ───────── 派生状态 ─────────
 
+    public bool IsInstalled => Local is not null;
+
+    public bool HasProjectUrl => !string.IsNullOrWhiteSpace(Remote?.ProjectUrl ?? Local?.Info?.HomePage);
+
+    public bool CanUninstall => _owner.HasGameRoot && IsInstalled && !IsBusy;
+
+    public bool CanReinstall => _owner.HasGameRoot && IsInstalled && IsRemote && !IsBusy;
+
     public bool IsDownloading => OperationState is ModOpState.Downloading or ModOpState.Resolving or ModOpState.Extracting or ModOpState.Finishing or ModOpState.Queued;
 
     public bool ShowProgress => IsDownloading || OperationState == ModOpState.Error;
@@ -118,6 +126,10 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
     {
         Local = local;
         OnPropertyChanged(nameof(Local));
+        OnPropertyChanged(nameof(IsInstalled));
+        OnPropertyChanged(nameof(HasProjectUrl));
+        OnPropertyChanged(nameof(CanUninstall));
+        OnPropertyChanged(nameof(CanReinstall));
         RefreshFrom(local);
     }
 
@@ -250,6 +262,12 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
 
         return Task.CompletedTask;
     }
+
+    [RelayCommand]
+    private Task UninstallActionAsync() => _owner.RunUninstallAsync(this);
+
+    [RelayCommand]
+    private Task ReinstallActionAsync() => _owner.RunReinstallAsync(this);
 
     [RelayCommand]
     private void OpenProjectPage()

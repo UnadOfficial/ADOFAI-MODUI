@@ -27,6 +27,16 @@ public sealed record StatusFilterItem(string Label, LocalModStatus? Value)
     public static StatusFilterItem Unlisted { get; } = new(UiStrings.StatusUnlisted, LocalModStatus.Unlisted);
 }
 
+/// <summary>排序选项条目。</summary>
+public sealed record SortFilterItem(string Label, int Id)
+{
+    public override string ToString() => Label;
+
+    public static SortFilterItem Default { get; } = new("默认排序", 0);
+    public static SortFilterItem Downloads { get; } = new("下载量最高", 1);
+    public static SortFilterItem Name { get; } = new("名称 (A - Z)", 2);
+}
+
 /// <summary>
 /// 主 ViewModel：TUF 远端目录 + 本地 Mods 扫描的合并视图。
 /// 同时为“浏览 Mod”与“我的 Mod”两个页面提供数据与操作命令。
@@ -85,6 +95,11 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         StatusOptions.Add(StatusFilterItem.Disabled);
         StatusOptions.Add(StatusFilterItem.Unlisted);
         SelectedStatus = StatusFilterItem.All;
+
+        SortOptions.Add(SortFilterItem.Default);
+        SortOptions.Add(SortFilterItem.Downloads);
+        SortOptions.Add(SortFilterItem.Name);
+        SelectedSort = SortFilterItem.Default;
     }
 
     // ───────── 绑定状态 ─────────
@@ -97,6 +112,8 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<StatusFilterItem> StatusOptions { get; } = new();
 
+    public ObservableCollection<SortFilterItem> SortOptions { get; } = new();
+
     public ObservableCollection<InstallRecord> History { get; } = new();
 
     [ObservableProperty]
@@ -107,6 +124,9 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private StatusFilterItem? _selectedStatus;
+
+    [ObservableProperty]
+    private SortFilterItem? _selectedSort;
 
     [ObservableProperty]
     private bool _isRefreshing;
@@ -132,14 +152,51 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isGameRootMissing = true;
 
+    [ObservableProperty]
+    private int _availableUpdatesCount;
+
+    [ObservableProperty]
+    private int _installedCount;
+
+    public bool HasUpdates => AvailableUpdatesCount > 0;
+
+    [ObservableProperty]
+    private bool _isBrowseEmpty;
+
+    [ObservableProperty]
+    private bool _isInstalledEmpty;
+
+    [ObservableProperty]
+    private bool _hasFilterActive;
+
+    public bool IsInstalledNoModsEmpty => HasGameRoot && IsInstalledEmpty && !HasFilterActive;
+
+    public bool IsInstalledFilterEmpty => HasGameRoot && IsInstalledEmpty && HasFilterActive;
+
+    public bool IsInstalledListVisible => HasGameRoot && !IsInstalledEmpty;
+
     [RelayCommand]
     public void NavigateToSettings() => _nav.NavigateTo("settings");
+
+    [RelayCommand]
+    public void NavigateToBrowse() => _nav.NavigateTo("browse");
+
+    [RelayCommand]
+    public void ResetFilters()
+    {
+        SearchText = string.Empty;
+        SelectedTag = AvailableTags.FirstOrDefault();
+        SelectedStatus = StatusFilterItem.All;
+        SelectedSort = SortFilterItem.Default;
+    }
 
     partial void OnSearchTextChanged(string value) => ScheduleFilter();
 
     partial void OnSelectedTagChanged(TagFilterItem? value) => ScheduleFilter();
 
     partial void OnSelectedStatusChanged(StatusFilterItem? value) => ScheduleFilter();
+
+    partial void OnSelectedSortChanged(SortFilterItem? value) => ScheduleFilter();
 
     /// <summary>详情弹窗请求（由页面订阅并展示 ContentDialog）。</summary>
     public event Action<ModCardViewModel>? DetailsRequested;
@@ -499,12 +556,35 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
                     (value == LocalModStatus.Disabled && c.Local.Disabled));
         }
 
-        var browse = _allCards.Where(c => c.Remote is not null && TextMatch(c) && TagMatch(c) && StatusMatch(c));
-        var installed = _allCards.Where(c => c.Local is not null && TextMatch(c) && TagMatch(c) && StatusMatch(c));
+        var sort = SelectedSort?.Id ?? 0;
+        IEnumerable<ModCardViewModel> SortCards(IEnumerable<ModCardViewModel> cards) => sort switch
+        {
+            1 => cards.OrderByDescending(c => c.Remote?.DownloadCount ?? 0).ThenBy(c => c.Title),
+            2 => cards.OrderBy(c => c.Title, StringComparer.CurrentCultureIgnoreCase),
+            _ => cards,
+        };
+
+        var browse = SortCards(_allCards.Where(c => c.Remote is not null && TextMatch(c) && TagMatch(c) && StatusMatch(c)));
+        var installed = SortCards(_allCards.Where(c => c.Local is not null && TextMatch(c) && TagMatch(c) && StatusMatch(c)));
 
         ReplaceAll(BrowseCards, browse);
         ReplaceAll(InstalledCards, installed);
+
+        AvailableUpdatesCount = _allCards.Count(c => c.Local is not null && c.StatusBadge == UiStrings.StatusUpdateAvailable);
+        InstalledCount = _allCards.Count(c => c.Local is not null);
+        OnPropertyChanged(nameof(HasUpdates));
+
+        HasFilterActive = !string.IsNullOrWhiteSpace(query) || (tag is not null && tag != "全部标签") || (status is not null && status != StatusFilterItem.All) || sort != 0;
+        IsBrowseEmpty = BrowseCards.Count == 0 && !IsRefreshing;
+        IsInstalledEmpty = InstalledCards.Count == 0 && !IsRefreshing;
+        OnPropertyChanged(nameof(IsInstalledNoModsEmpty));
+        OnPropertyChanged(nameof(IsInstalledFilterEmpty));
+        OnPropertyChanged(nameof(IsInstalledListVisible));
     }
+
+    public Task RunUninstallAsync(ModCardViewModel card) => UninstallAsync(card);
+
+    public Task RunReinstallAsync(ModCardViewModel card) => InstallOrUpdateAsync(card, forceReinstall: true);
 
     private static void ReplaceAll<T>(ObservableCollection<T> target, IEnumerable<T> source)
     {
@@ -888,6 +968,14 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         {
             History.Add(record);
         }
+    }
+
+    [RelayCommand]
+    public async Task ClearHistoryAsync()
+    {
+        History.Clear();
+        _settings.State.Installs.Clear();
+        await _settings.SaveAsync().ConfigureAwait(true);
     }
 
     private void ShowNotice(string message, bool isError)
