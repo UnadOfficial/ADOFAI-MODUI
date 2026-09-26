@@ -20,8 +20,20 @@ public partial class DownloadsViewModel : ObservableObject
             card.StateChanged += OnCardStateChanged;
         }
 
+        _mods.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(ModsPageViewModel.HasGameRoot))
+            {
+                OnPropertyChanged(nameof(IsGameRootMissing));
+            }
+        };
+
         RefreshActive();
     }
+
+    public bool IsGameRootMissing => !_mods.HasGameRoot;
+
+    public void NavigateToSettings() => _mods.NavigateToSettings();
 
     public ObservableCollection<ModCardViewModel> ActiveItems { get; } = new();
 

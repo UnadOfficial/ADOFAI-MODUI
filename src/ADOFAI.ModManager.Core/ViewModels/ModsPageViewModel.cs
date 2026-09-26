@@ -39,6 +39,8 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     private readonly IDiskCacheService _cache;
     private readonly IDialogService _dialogs;
     private readonly ISettingsService _settings;
+    private readonly ISteamLocatorService _steam;
+    private readonly INavigationService _nav;
     private readonly ILogger<ModsPageViewModel> _logger;
 
     private readonly SemaphoreSlim _downloadSlots;
@@ -54,6 +56,8 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         IDiskCacheService cache,
         IDialogService dialogs,
         ISettingsService settings,
+        ISteamLocatorService steam,
+        INavigationService nav,
         ILogger<ModsPageViewModel> logger)
     {
         _tuf = tuf;
@@ -62,7 +66,11 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         _cache = cache;
         _dialogs = dialogs;
         _settings = settings;
+        _steam = steam;
+        _nav = nav;
         _logger = logger;
+
+        _settings.SettingsSaved += OnSettingsSaved;
 
         var parallel = Math.Clamp(settings.State.Settings.MaxParallelDownloads, 1, 6);
         _downloadSlots = new SemaphoreSlim(parallel, parallel);
@@ -118,6 +126,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _hasGameRoot;
 
+    [ObservableProperty]
+    private bool _isGameRootMissing = true;
+
+    [RelayCommand]
+    public void NavigateToSettings() => _nav.NavigateTo("settings");
+
     partial void OnSearchTextChanged(string value) => ScheduleFilter();
 
     partial void OnSelectedTagChanged(TagFilterItem? value) => ScheduleFilter();
@@ -153,6 +167,19 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task RescanAsync()
     {
+        if (!HasGameRoot)
+        {
+            _lastScan[0] = null;
+            InstalledCards.Clear();
+            foreach (var card in _allCards)
+            {
+                card.AttachLocal(null);
+            }
+
+            ApplyFilters();
+            return;
+        }
+
         await RescanLocalAsync().ConfigureAwait(true);
         ApplyFilters();
     }
@@ -237,12 +264,24 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>刷新游戏目录状态显示（页面切换时调用）。</summary>
+    /// <summary>刷新游戏目录状态显示（页面切换与设置变更时调用）。</summary>
     public void RefreshGameRootState()
     {
         var root = _settings.State.Settings.GameRoot;
-        GameRootText = string.IsNullOrEmpty(root) ? "未设置游戏目录" : root;
-        HasGameRoot = !string.IsNullOrEmpty(root);
+        HasGameRoot = _steam.IsValidGameRoot(root);
+        IsGameRootMissing = !HasGameRoot;
+        GameRootText = HasGameRoot ? root : (string.IsNullOrWhiteSpace(root) ? "未设置游戏目录" : "游戏目录无效");
+
+        foreach (var card in _allCards)
+        {
+            card.RefreshFrom(card.Local);
+        }
+    }
+
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        RefreshGameRootState();
+        _ = RescanAsync();
     }
 
     // ───────── 合并远端 + 本地 ─────────
@@ -452,6 +491,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     public async Task RunPrimaryAsync(ModCardViewModel card)
     {
+        if (!HasGameRoot)
+        {
+            await _dialogs.AlertAsync("未设置游戏目录", "请先到“设置”页定位《冰与火之舞》的游戏根目录。").ConfigureAwait(true);
+            return;
+        }
+
         if (card.Local is not null && card.Local.Disabled)
         {
             await ToggleAsync(card).ConfigureAwait(true);
@@ -469,6 +514,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     public async Task RunSecondaryAsync(ModCardViewModel card)
     {
+        if (!HasGameRoot)
+        {
+            await _dialogs.AlertAsync("未设置游戏目录", "请先到“设置”页定位《冰与火之舞》的游戏根目录。").ConfigureAwait(true);
+            return;
+        }
+
         if (card.Local is null)
         {
             return;
@@ -629,6 +680,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     private async Task UninstallAsync(ModCardViewModel card)
     {
+        if (!HasGameRoot)
+        {
+            ShowNotice("未配置游戏路径，无法卸载 Mod。", isError: true);
+            return;
+        }
+
         if (card.Local is null || card.IsBusy)
         {
             return;
@@ -668,6 +725,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     private async Task ToggleAsync(ModCardViewModel card)
     {
+        if (!HasGameRoot)
+        {
+            ShowNotice("未配置游戏路径，无法管理 Mod 状态。", isError: true);
+            return;
+        }
+
         if (card.Local is null || card.IsBusy)
         {
             return;
@@ -690,6 +753,12 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task UpdateAllAsync()
     {
+        if (!HasGameRoot)
+        {
+            ShowNotice("未配置有效的游戏路径，无法更新 Mod。", isError: true);
+            return;
+        }
+
         var targets = _allCards
             .Where(c => c.Remote is not null && c.Local is not null && !c.Local.Disabled && !c.IsBusy &&
                         c.StatusBadge == UiStrings.StatusUpdateAvailable)
@@ -734,6 +803,11 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void OpenModsFolder()
     {
+        if (!HasGameRoot)
+        {
+            return;
+        }
+
         var mods = _local.GetModsDirectory();
         if (!string.IsNullOrEmpty(mods) && Directory.Exists(mods))
         {
@@ -810,6 +884,7 @@ public partial class ModsPageViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _settings.SettingsSaved -= OnSettingsSaved;
         _downloadSlots.Dispose();
         foreach (var gate in _modLocks.Values)
         {

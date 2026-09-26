@@ -18,6 +18,12 @@ public interface ISettingsService
 
     /// <summary>数据目录（%LOCALAPPDATA%\ADOFAI.ModManager）。</summary>
     string DataDirectory { get; }
+
+    /// <summary>设置已保存并持久化事件。</summary>
+    event EventHandler? SettingsSaved;
+
+    /// <summary>主动触发设置变更通知。</summary>
+    void NotifySettingsChanged();
 }
 
 /// <summary>设置持久化实现：写临时文件再原子替换，损坏时自动回退默认值。</summary>
@@ -80,6 +86,10 @@ public sealed class SettingsService : ISettingsService, IDisposable
         }
     }
 
+    public event EventHandler? SettingsSaved;
+
+    public void NotifySettingsChanged() => SettingsSaved?.Invoke(this, EventArgs.Empty);
+
     public async Task SaveAsync(CancellationToken ct = default)
     {
         Directory.CreateDirectory(DataDirectory);
@@ -99,5 +109,7 @@ public sealed class SettingsService : ISettingsService, IDisposable
         {
             _ioLock.Release();
         }
+
+        NotifySettingsChanged();
     }
 }

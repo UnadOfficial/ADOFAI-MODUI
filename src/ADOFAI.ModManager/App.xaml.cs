@@ -26,8 +26,12 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        MainAppWindow = new MainWindow();
-        MainAppWindow.Activate();
+        var window = new MainWindow();
+        MainAppWindow = window;
+        window.Activate();
+
+        Services.GetRequiredService<UiServiceHost>().Attach(window);
+        Services.GetRequiredService<NavigationService>().Attach(window);
 
         // 启动后初始化主 ViewModel（需要窗口已就绪以便弹窗）
         _ = _dispatcherQueue.TryEnqueue(async () =>
@@ -94,6 +98,8 @@ public partial class App : Application
         services.AddSingleton<UiServiceHost>();
         services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<UiServiceHost>());
         services.AddSingleton<IFilePickerService>(sp => sp.GetRequiredService<UiServiceHost>());
+        services.AddSingleton<NavigationService>();
+        services.AddSingleton<INavigationService>(sp => sp.GetRequiredService<NavigationService>());
 
         // ── ViewModel ──
         services.AddSingleton<ModsPageViewModel>();

@@ -20,6 +20,9 @@ public interface ISteamLocatorService
 
     /// <summary>校验用户手动选择的目录是否为有效游戏根目录。</summary>
     Task<GameLocatorResult> ValidateAsync(string? gameRoot, CancellationToken ct = default);
+
+    /// <summary>同步严格校验指定目录是否为有效游戏根目录（路径非空、目录存在、含 exe 与 _Data 目录）。</summary>
+    bool IsValidGameRoot(string? gameRoot);
 }
 
 public sealed partial class SteamLocatorService : ISteamLocatorService
@@ -107,6 +110,29 @@ public sealed partial class SteamLocatorService : ISteamLocatorService
 
         return await Task.Run(() => ValidateGameRoot(
             gameRoot.Trim('"', ' '), libraryPath: null, GameSource.Manual), ct);
+    }
+
+    public bool IsValidGameRoot(string? gameRoot)
+    {
+        if (string.IsNullOrWhiteSpace(gameRoot))
+        {
+            return false;
+        }
+
+        var path = gameRoot.Trim('"', ' ');
+        if (!Directory.Exists(path))
+        {
+            return false;
+        }
+
+        var exe = FindFileCaseInsensitive(path, GameExeName);
+        if (exe is null)
+        {
+            return false;
+        }
+
+        var dataFolder = FindDirectoryEndingWith(path, GameDataFolderSuffix);
+        return dataFolder is not null;
     }
 
     /// <summary>校验目录是否为有效游戏根目录（exe + _Data 目录，均不区分大小写）。</summary>
@@ -207,7 +233,7 @@ public sealed partial class SteamLocatorService : ISteamLocatorService
         return null;
     }
 
-    private static string? FindDirectoryEndingWith(string directory, string suffix)
+    internal static string? FindDirectoryEndingWith(string directory, string suffix)
     {
         try
         {

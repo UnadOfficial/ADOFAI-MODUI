@@ -14,19 +14,33 @@
     <Grid Padding="28,16,28,12" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock
+            Grid.Row="0"
             x:Uid="DownloadsPage_Title"
             Text="下载与任务"
             FontSize="28"
             FontWeight="SemiBold" />
 
+        <InfoBar
+            Grid.Row="1"
+            IsOpen="{x:Bind ViewModel.IsGameRootMissing, Mode=OneWay}"
+            IsClosable="False"
+            Severity="Warning"
+            Title="未配置游戏路径"
+            Message="当前尚未配置游戏根目录，暂不支持创建新的下载与安装任务。请先前往设置进行配置。">
+            <InfoBar.ActionButton>
+                <Button Content="前往设置" Command="{x:Bind ViewModel.NavigateToSettingsCommand}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
         <!--  ── 进行中的任务（复用卡片，含进度条与取消） ──  -->
         <ListView
-            Grid.Row="1"
+            Grid.Row="2"
             ItemsSource="{x:Bind ViewModel.ActiveItems, Mode=OneWay}"
             SelectionMode="None">
             <ListView.ItemTemplate>
@@ -44,7 +58,7 @@
         </ListView>
 
         <!--  ── 历史记录 ──  -->
-        <StackPanel Grid.Row="2" Spacing="8">
+        <StackPanel Grid.Row="3" Spacing="8">
             <TextBlock Text="安装历史" FontSize="16" FontWeight="SemiBold" />
             <ListView
                 ItemsSource="{x:Bind ViewModel.History, Mode=OneWay}"

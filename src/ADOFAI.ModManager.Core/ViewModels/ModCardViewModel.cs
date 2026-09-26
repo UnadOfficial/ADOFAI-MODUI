@@ -95,6 +95,9 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _canSecondary;
 
+    [ObservableProperty]
+    private string _primaryButtonToolTip = string.Empty;
+
     /// <summary>是否为纯本地卡片（未收录到 TUF 目录）。</summary>
     [ObservableProperty]
     private bool _isLocalOnly;
@@ -202,6 +205,17 @@ public partial class ModCardViewModel : ObservableObject, IDisposable
             SecondaryButtonText = UiStrings.ActionDisable;
             CanPrimary = true;
             CanSecondary = true;
+        }
+
+        if (!_owner.HasGameRoot)
+        {
+            CanPrimary = false;
+            CanSecondary = false;
+            PrimaryButtonToolTip = "未配置游戏路径，无法进行安装或管理";
+        }
+        else
+        {
+            PrimaryButtonToolTip = PrimaryButtonText;
         }
 
         if (OperationState != ModOpState.Idle)

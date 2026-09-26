@@ -177,6 +177,7 @@
                     Content="{x:Bind ViewModel.PrimaryButtonText, Mode=OneWay}"
                     IsEnabled="{x:Bind ViewModel.CanPrimary, Mode=OneWay}"
                     Command="{x:Bind ViewModel.PrimaryActionCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.PrimaryButtonToolTip, Mode=OneWay}"
                     Style="{ThemeResource AccentButtonStyle}"
                     MinWidth="84" />
 

@@ -64,4 +64,17 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(targetPage);
         }
     }
+
+    /// <summary>按 tag 切换选中的导航项。</summary>
+    public void NavigateToTag(string tag)
+    {
+        foreach (var item in NavView.MenuItems)
+        {
+            if (item is NavigationViewItem navItem && navItem.Tag as string == tag)
+            {
+                NavView.SelectedItem = navItem;
+                break;
+            }
+        }
+    }
 }

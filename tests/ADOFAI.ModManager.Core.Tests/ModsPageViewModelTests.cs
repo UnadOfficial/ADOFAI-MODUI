@@ -1,5 +1,6 @@
 using ADOFAI.ModManager.Core.Helpers;
 using ADOFAI.ModManager.Core.Models.App;
+using ADOFAI.ModManager.Core.Models.Game;
 using ADOFAI.ModManager.Core.Models.Local;
 using ADOFAI.ModManager.Core.Models.Tuforums;
 using ADOFAI.ModManager.Core.Models.Transfer;
@@ -14,13 +15,22 @@ public class ModsPageViewModelTests
 {
     private static (ModsPageViewModel Vm, FakeLocal Local, FakeTuf Tuf) Create(LocalMod[] locals, TufMod[] remote)
     {
-        var settings = TestHost.CreateSettings(@"C:\Games\ADOFAI");
+        var (vm, local, tuf, _, _) = CreateFull(locals, remote);
+        return (vm, local, tuf);
+    }
+
+    private static (ModsPageViewModel Vm, FakeLocal Local, FakeTuf Tuf, TestHost.FakeSettingsService Settings, FakeNav Nav) CreateFull(
+        LocalMod[] locals, TufMod[] remote, string? gameRoot = @"C:\Games\ADOFAI", bool isValidGameRoot = true)
+    {
+        var settings = TestHost.CreateSettings(gameRoot);
         var local = new FakeLocal(locals);
         var tuf = new FakeTuf(remote);
+        var steam = new FakeSteam(isValidGameRoot);
+        var nav = new FakeNav();
         var vm = new ModsPageViewModel(
             tuf, local, new FakeLifecycle(), new FakeCache(),
-            new FakeDialogs(), settings, NullLogger<ModsPageViewModel>.Instance);
-        return (vm, local, tuf);
+            new FakeDialogs(), settings, steam, nav, NullLogger<ModsPageViewModel>.Instance);
+        return (vm, local, tuf, settings, nav);
     }
 
     [Fact]
@@ -127,6 +137,126 @@ public class ModsPageViewModelTests
         Assert.Equal("a", Assert.Single(vm.BrowseCards).Slug);
     }
 
+    [Fact]
+    public async Task WhenGameRootNotConfigured_CardsHaveCanPrimaryFalseAndWarningState()
+    {
+        var local = new LocalModBuilder("adofaitweaks", "2.8.0").Build();
+        var (vm, _, _, _, _) = CreateFull(
+            new[] { local },
+            new[]
+            {
+                new TufMod { Slug = "adofaitweaks", Name = "AdofaiTweaks", Version = "2.9.3" },
+                new TufMod { Slug = "tufhelper", Name = "TUFHelper", Version = "3.1.1" },
+            },
+            gameRoot: "",
+            isValidGameRoot: false);
+
+        await vm.InitializeAsync();
+
+        Assert.False(vm.HasGameRoot);
+        Assert.True(vm.IsGameRootMissing);
+        Assert.Equal("未设置游戏目录", vm.GameRootText);
+
+        // 远端卡片与本地卡片操作按钮均置灰禁用
+        Assert.Equal(2, vm.BrowseCards.Count);
+        foreach (var card in vm.BrowseCards)
+        {
+            Assert.False(card.CanPrimary);
+            Assert.False(card.CanSecondary);
+            Assert.Contains("未配置游戏路径", card.PrimaryButtonToolTip);
+            // 详情与外部链接仍然可以查看
+            Assert.True(card.ShowDetailsCommand.CanExecute(null));
+            Assert.True(card.OpenTufPageCommand.CanExecute(null));
+        }
+    }
+
+    [Fact]
+    public async Task WhenGameRootConfigured_CardsHaveCanPrimaryTrue()
+    {
+        var (vm, _, _, _, _) = CreateFull(
+            Array.Empty<LocalMod>(),
+            new[] { new TufMod { Slug = "tufhelper", Name = "TUFHelper", Version = "3.1.1" } },
+            gameRoot: @"C:\Games\ADOFAI",
+            isValidGameRoot: true);
+
+        await vm.InitializeAsync();
+
+        Assert.True(vm.HasGameRoot);
+        Assert.False(vm.IsGameRootMissing);
+
+        var card = Assert.Single(vm.BrowseCards);
+        Assert.True(card.CanPrimary);
+    }
+
+    [Fact]
+    public async Task ToolbarAndActions_GuardedWhenGameRootNotConfigured()
+    {
+        var local = new LocalModBuilder("adofaitweaks", "2.8.0").Build();
+        var (vm, _, _, _, _) = CreateFull(
+            new[] { local },
+            new[] { new TufMod { Slug = "adofaitweaks", Name = "AdofaiTweaks", Version = "2.9.3" } },
+            gameRoot: "",
+            isValidGameRoot: false);
+
+        await vm.InitializeAsync();
+
+        // 1) 一键更新被拦截并给出错误提示
+        await vm.UpdateAllAsync();
+        Assert.True(vm.NoticeIsError);
+        Assert.Contains("未配置", vm.Notice);
+
+        // 2) 导入 zip 被拦截
+        await vm.InstallZipAsync("dummy.zip");
+
+        // 3) 卡片主操作被拦截
+        var card = Assert.Single(vm.BrowseCards);
+        await card.PrimaryActionCommand.ExecuteAsync(null);
+
+        // 4) 重新扫描在未配置时清空已安装列表
+        await vm.RescanAsync();
+        Assert.Empty(vm.InstalledCards);
+    }
+
+    [Fact]
+    public void NavigateToSettings_CallsNavService()
+    {
+        var (vm, _, _, _, nav) = CreateFull(
+            Array.Empty<LocalMod>(),
+            Array.Empty<TufMod>(),
+            gameRoot: "",
+            isValidGameRoot: false);
+
+        vm.NavigateToSettings();
+        Assert.Equal("settings", nav.LastNavigatedTag);
+    }
+
+    [Fact]
+    public void SteamLocatorService_IsValidGameRoot_StrictValidation()
+    {
+        var locator = new SteamLocatorService(NullLogger<SteamLocatorService>.Instance);
+
+        // 1) 空或空白
+        Assert.False(locator.IsValidGameRoot(null));
+        Assert.False(locator.IsValidGameRoot(""));
+        Assert.False(locator.IsValidGameRoot("   "));
+
+        // 2) 不存在的目录
+        var nonExistent = Path.Combine(Path.GetTempPath(), "non-existent-" + Guid.NewGuid().ToString("N"));
+        Assert.False(locator.IsValidGameRoot(nonExistent));
+
+        // 3) 存在目录但无 exe、无 _Data
+        var emptyDir = TestHost.CreateTempDir();
+        Assert.False(locator.IsValidGameRoot(emptyDir));
+
+        // 4) 有 exe 但缺少 _Data
+        File.WriteAllText(Path.Combine(emptyDir, "A Dance of Fire and Ice.exe"), "dummy");
+        Assert.False(locator.IsValidGameRoot(emptyDir));
+
+        // 5) 同时具备 exe 与 _Data 目录（大小写不敏感）
+        Directory.CreateDirectory(Path.Combine(emptyDir, "A Dance of Fire and Ice_Data"));
+        Assert.True(locator.IsValidGameRoot(emptyDir));
+    }
+
     // ───────── 构造辅助 ─────────
 
     private sealed class LocalModBuilder
@@ -224,9 +354,37 @@ public class ModsPageViewModelTests
 
     private sealed class FakeDialogs : IDialogService
     {
-        public Task AlertAsync(string title, string message) => Task.CompletedTask;
+        public List<string> Alerts { get; } = new();
+
+        public Task AlertAsync(string title, string message)
+        {
+            Alerts.Add($"{title}: {message}");
+            return Task.CompletedTask;
+        }
 
         public Task<bool> ConfirmAsync(string title, string message, string confirmText = "确定", string cancelText = "取消")
             => Task.FromResult(true);
+    }
+
+    private sealed class FakeSteam : ISteamLocatorService
+    {
+        private readonly bool _isValid;
+
+        public FakeSteam(bool isValid = true) => _isValid = isValid;
+
+        public Task<GameLocatorResult> LocateAsync(CancellationToken ct = default)
+            => Task.FromResult(new GameLocatorResult { Found = _isValid, GameRoot = @"C:\Games\ADOFAI" });
+
+        public Task<GameLocatorResult> ValidateAsync(string? gameRoot, CancellationToken ct = default)
+            => Task.FromResult(new GameLocatorResult { Found = _isValid, GameRoot = gameRoot ?? string.Empty });
+
+        public bool IsValidGameRoot(string? gameRoot) => _isValid && !string.IsNullOrWhiteSpace(gameRoot);
+    }
+
+    private sealed class FakeNav : INavigationService
+    {
+        public string? LastNavigatedTag { get; private set; }
+
+        public void NavigateTo(string tag) => LastNavigatedTag = tag;
     }
 }

@@ -21,6 +21,12 @@ public interface IFilePickerService
     Task<string?> PickFileAsync(params string[] extensions);
 }
 
+/// <summary>页面导航抽象（供 ViewModel 触发切换导航页面）。</summary>
+public interface INavigationService
+{
+    void NavigateTo(string tag);
+}
+
 /// <summary>用系统浏览器打开链接。</summary>
 public static class Browser
 {

@@ -38,19 +38,24 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
-                <Button Click="ImportZip_Click" ToolTipService.ToolTip="从本地 zip 文件安装 Mod">
+                <Button Click="ImportZip_Click"
+                        IsEnabled="{x:Bind ViewModel.HasGameRoot, Mode=OneWay}"
+                        ToolTipService.ToolTip="从本地 zip 文件安装 Mod">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE8E5;" FontSize="14" />
                         <TextBlock Text="导入本地 zip" />
                     </StackPanel>
                 </Button>
-                <Button Command="{x:Bind ViewModel.OpenModsFolderCommand}" ToolTipService.ToolTip="在资源管理器中打开 Mods 目录">
+                <Button Command="{x:Bind ViewModel.OpenModsFolderCommand}"
+                        IsEnabled="{x:Bind ViewModel.HasGameRoot, Mode=OneWay}"
+                        ToolTipService.ToolTip="在资源管理器中打开 Mods 目录">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE838;" FontSize="14" />
                         <TextBlock Text="打开 Mods 目录" />
                     </StackPanel>
                 </Button>
-                <Button Command="{x:Bind ViewModel.RescanCommand}">
+                <Button Command="{x:Bind ViewModel.RescanCommand}"
+                        IsEnabled="{x:Bind ViewModel.HasGameRoot, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
                         <TextBlock Text="重新扫描" />
@@ -72,13 +77,15 @@
                 x:Uid="InstalledPage_Search"
                 PlaceholderText="搜索已安装的 Mod…"
                 TextChanged="SearchBox_TextChanged"
+                IsEnabled="{x:Bind ViewModel.HasGameRoot, Mode=OneWay}"
                 Text="{x:Bind ViewModel.SearchText, Mode=TwoWay}" />
 
             <ComboBox
                 Grid.Column="1"
                 MinWidth="140"
                 ItemsSource="{x:Bind ViewModel.StatusOptions, Mode=OneWay}"
-                SelectedItem="{x:Bind ViewModel.SelectedStatus, Mode=TwoWay}" />
+                SelectedItem="{x:Bind ViewModel.SelectedStatus, Mode=TwoWay}"
+                IsEnabled="{x:Bind ViewModel.HasGameRoot, Mode=OneWay}" />
 
             <ProgressRing
                 Grid.Column="2"
@@ -95,9 +102,34 @@
             Severity="{x:Bind ViewModel.NoticeIsError, Mode=OneWay, Converter={StaticResource BoolToSeverity}}"
             Message="{x:Bind ViewModel.Notice, Mode=OneWay}" />
 
+        <!--  ── 未配置游戏目录时的引导面板  -->
+        <Border
+            Grid.Row="3"
+            Visibility="{x:Bind ViewModel.IsGameRootMissing, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            MaxWidth="480"
+            Padding="32"
+            CornerRadius="8"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1">
+            <StackPanel Spacing="14" HorizontalAlignment="Center">
+                <FontIcon Glyph="&#xE7BA;" FontSize="44" Foreground="{ThemeResource SystemFillColorCautionBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="未配置游戏路径" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="检测到尚未配置《冰与火之舞》的游戏安装目录。配置游戏路径后，方可管理已安装的 Mod、导入本地 zip 及调整 Mod 启用状态。"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Button Content="前往设置页配置" Style="{ThemeResource AccentButtonStyle}"
+                        HorizontalAlignment="Center"
+                        Command="{x:Bind ViewModel.NavigateToSettingsCommand}" />
+            </StackPanel>
+        </Border>
+
         <!--  ── Mod 卡片列表 ──  -->
         <ListView
             Grid.Row="3"
+            Visibility="{x:Bind ViewModel.HasGameRoot, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
             ItemsSource="{x:Bind ViewModel.InstalledCards, Mode=OneWay}"
             SelectionMode="None">
             <ListView.ItemTemplate>

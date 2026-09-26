@@ -60,6 +60,14 @@ public static class TestHost
 
         public Task LoadAsync(CancellationToken ct = default) => Task.CompletedTask;
 
-        public Task SaveAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public event EventHandler? SettingsSaved;
+
+        public void NotifySettingsChanged() => SettingsSaved?.Invoke(this, EventArgs.Empty);
+
+        public Task SaveAsync(CancellationToken ct = default)
+        {
+            NotifySettingsChanged();
+            return Task.CompletedTask;
+        }
     }
 }
