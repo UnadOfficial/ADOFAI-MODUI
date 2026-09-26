@@ -50,7 +50,7 @@ jobs:
         run: dotnet restore ADOFAI.ModManager.sln
 
       - name: Build WinUI app (x64)
-        run: dotnet build src/ADOFAI.ModManager/ADOFAI.ModManager.csproj -c Release -p:Platform=x64 --no-restore
+        run: dotnet build src/ADOFAI.ModManager/ADOFAI.ModManager.csproj -c Release -p:Platform=x64 --no-restore -v:n
 
       - name: Upload build output
         if: always()

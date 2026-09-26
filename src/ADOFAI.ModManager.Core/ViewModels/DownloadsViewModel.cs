@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ADOFAI.ModManager.Core.Models.App;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace ADOFAI.ModManager.Core.ViewModels;
 
@@ -33,6 +34,7 @@ public partial class DownloadsViewModel : ObservableObject
 
     public bool IsGameRootMissing => !_mods.HasGameRoot;
 
+    [RelayCommand]
     public void NavigateToSettings() => _mods.NavigateToSettings();
 
     public ObservableCollection<ModCardViewModel> ActiveItems { get; } = new();
