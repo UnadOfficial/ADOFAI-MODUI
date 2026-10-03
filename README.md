@@ -1,5 +1,7 @@
 # ADOFAI-MODUI
 
+# 本项目于2026.9月探索立项并打通WinUI 3架构原型，留作技术归档
+
 现代化的《冰与火之舞》（A Dance of Fire and Ice, ADOFAI）开源 Mod 管理器 —— 基于 **WinUI 3** 的 Windows 桌面客户端。
 
 对接 [Tuforums](https://tuforums.com) 公共 Mod 目录，兼容 **Unity Mod Manager（UMM）** 的 `Mods/` 目录与 `Info.json` 规范，提供浏览、搜索、安装、更新、禁用/启用与卸载的完整生命周期管理。
