@@ -23,6 +23,15 @@ public sealed class AppSettings
 
     /// <summary>界面主题：Default / Light / Dark。</summary>
     public string Theme { get; set; } = "Default";
+
+    /// <summary>生效的 GitHub 镜像源前缀或模板（空字符串表示直连）。例如："https://ghproxy.net/"</summary>
+    public string GitHubMirror { get; set; } = string.Empty;
+
+    /// <summary>用户输入的自定义 GitHub 镜像地址，切换预设时保留记录。</summary>
+    public string CustomGitHubMirror { get; set; } = string.Empty;
+
+    /// <summary>详情页翻译提供商：Auto（自动）/ Bing（微软必应）/ Google（谷歌）。</summary>
+    public string TranslationProvider { get; set; } = "Auto";
 }
 
 /// <summary>本地 Mod ↔ Tuforums slug 的持久化关联。</summary>

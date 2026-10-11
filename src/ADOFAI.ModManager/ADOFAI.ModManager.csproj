@@ -37,4 +37,149 @@
     <ProjectReference Include="..\ADOFAI.ModManager.Core\ADOFAI.ModManager.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    WinUI / Windows App SDK 的 .mui 必须放在 DLL 旁边的 zh-CN 这类目录里，加载器不会进 lang\。
+    文件本体收进 lang\<文化名>\，根目录只留同名目录联接，磁盘上不复制第二份。
+  -->
+  <PropertyGroup>
+    <_SatelliteLangRegex>^(?i)[a-z]{2,3}(-[A-Za-z0-9]+){1,2}[\\/]</_SatelliteLangRegex>
+  </PropertyGroup>
+
+  <UsingTask TaskName="MoveSatelliteLanguageFolders" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Root ParameterType="System.String" Required="true" />
+      <MovedFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.Diagnostics" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="Microsoft.Build.Framework" />
+      <Using Namespace="Microsoft.Build.Utilities" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var moved = new List<ITaskItem>();
+        var failed = false;
+        if (!string.IsNullOrWhiteSpace(Root) && Directory.Exists(Root))
+        {
+          var cultureName = new Regex(@"^[a-z]{2,3}(-[A-Za-z0-9]+){1,2}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+          bool IsReparse(string path) => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+          var langRoot = Path.Combine(Root, "lang");
+          var sourceDirs = Directory.GetDirectories(Root)
+            .Where(dir => cultureName.IsMatch(Path.GetFileName(dir)) && !IsReparse(dir))
+            .ToArray();
+          if (sourceDirs.Length > 0)
+          {
+            Directory.CreateDirectory(langRoot);
+            foreach (var sourceDir in sourceDirs)
+            {
+              var destDir = Path.Combine(langRoot, Path.GetFileName(sourceDir));
+              Directory.CreateDirectory(destDir);
+              var sourcePrefix = sourceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+              foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+              {
+                var relative = file.Substring(sourcePrefix.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var target = Path.Combine(destDir, relative);
+                var targetParent = Path.GetDirectoryName(target);
+                if (!string.IsNullOrEmpty(targetParent))
+                {
+                  Directory.CreateDirectory(targetParent);
+                }
+
+                if (File.Exists(target))
+                {
+                  var existing = new FileInfo(target);
+                  if (existing.IsReadOnly)
+                  {
+                    existing.IsReadOnly = false;
+                  }
+
+                  existing.Delete();
+                }
+
+                File.Move(file, target);
+                moved.Add(new TaskItem(target));
+              }
+
+              Directory.Delete(sourceDir, true);
+            }
+
+            Log.LogMessage("Moved " + sourceDirs.Length + " satellite language folders into lang.");
+          }
+
+          if (Directory.Exists(langRoot))
+          {
+            foreach (var langDir in Directory.GetDirectories(langRoot))
+            {
+              var name = Path.GetFileName(langDir);
+              if (!cultureName.IsMatch(name) || IsReparse(langDir))
+              {
+                continue;
+              }
+
+              var link = Path.Combine(Root, name);
+              if (Directory.Exists(link))
+              {
+                if (IsReparse(link))
+                {
+                  continue;
+                }
+
+                Log.LogError("Cannot link satellite language folder because a real directory already exists: " + link);
+                failed = true;
+                continue;
+              }
+
+              var creator = Process.Start(new ProcessStartInfo
+              {
+                FileName = "cmd.exe",
+                Arguments = "/c mklink /J \"" + link + "\" \"" + Path.GetFullPath(langDir) + "\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+              });
+              creator.WaitForExit();
+              if (creator.ExitCode != 0 || !Directory.Exists(link))
+              {
+                Log.LogError("mklink /J failed for " + link + ": " + creator.StandardError.ReadToEnd() + creator.StandardOutput.ReadToEnd());
+                failed = true;
+              }
+            }
+          }
+        }
+
+        MovedFiles = moved.ToArray();
+        if (failed)
+        {
+          return false;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="RedirectSatelliteLanguagesToLang" BeforeTargets="_GetCopyToOutputDirectoryItemsFromThisProject;GetCopyToPublishDirectoryItems">
+    <ItemGroup>
+      <_NoneWithTargetPath Update="@(_NoneWithTargetPath)" Condition="'%(_NoneWithTargetPath.Extension)' == '.mui' and $([System.Text.RegularExpressions.Regex]::IsMatch('%(_NoneWithTargetPath.TargetPath)', '$(_SatelliteLangRegex)'))">
+        <TargetPath>lang\%(_NoneWithTargetPath.TargetPath)</TargetPath>
+      </_NoneWithTargetPath>
+      <ContentWithTargetPath Update="@(ContentWithTargetPath)" Condition="'%(ContentWithTargetPath.Extension)' == '.mui' and $([System.Text.RegularExpressions.Regex]::IsMatch('%(ContentWithTargetPath.TargetPath)', '$(_SatelliteLangRegex)'))">
+        <TargetPath>lang\%(ContentWithTargetPath.TargetPath)</TargetPath>
+      </ContentWithTargetPath>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="MoveOutputSatelliteLanguageFolders" AfterTargets="Build">
+    <MoveSatelliteLanguageFolders Root="$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(OutputPath)))">
+      <Output TaskParameter="MovedFiles" ItemName="FileWrites" />
+    </MoveSatelliteLanguageFolders>
+  </Target>
+
+  <Target Name="MovePublishedSatelliteLanguageFolders" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <MoveSatelliteLanguageFolders Root="$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(PublishDir)))">
+      <Output TaskParameter="MovedFiles" ItemName="FileWrites" />
+    </MoveSatelliteLanguageFolders>
+  </Target>
+
 </Project>

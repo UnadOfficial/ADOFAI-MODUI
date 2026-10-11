@@ -32,12 +32,22 @@ public sealed class ModDownloadService : IModDownloadService
     private static readonly TimeSpan ReportInterval = TimeSpan.FromMilliseconds(100);
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGitHubMirrorService? _mirrorService;
     private readonly ILogger<ModDownloadService> _logger;
 
-    public ModDownloadService(IHttpClientFactory httpClientFactory, ILogger<ModDownloadService> logger)
+    public ModDownloadService(
+        IHttpClientFactory httpClientFactory,
+        IGitHubMirrorService mirrorService,
+        ILogger<ModDownloadService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _mirrorService = mirrorService;
         _logger = logger;
+    }
+
+    public ModDownloadService(IHttpClientFactory httpClientFactory, ILogger<ModDownloadService> logger)
+        : this(httpClientFactory, null!, logger)
+    {
     }
 
     public async Task<DownloadResult> DownloadAsync(
@@ -76,7 +86,13 @@ public sealed class ModDownloadService : IModDownloadService
         var existing = File.Exists(part) ? new FileInfo(part).Length : 0;
         var client = _httpClientFactory.CreateClient("downloads");
 
-        using var request2 = new HttpRequestMessage(HttpMethod.Get, request.Url);
+        var effectiveUrl = _mirrorService is not null ? _mirrorService.ApplyMirror(request.Url) : request.Url;
+        if (!string.Equals(effectiveUrl, request.Url, StringComparison.Ordinal))
+        {
+            _logger.LogInformation("应用 GitHub 镜像下载：{Url} → {MirrorUrl}", request.Url, effectiveUrl);
+        }
+
+        using var request2 = new HttpRequestMessage(HttpMethod.Get, effectiveUrl);
         if (existing > 0)
         {
             request2.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(existing, null);

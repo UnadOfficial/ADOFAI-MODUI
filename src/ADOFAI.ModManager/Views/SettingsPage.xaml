@@ -21,8 +21,8 @@
             FontSize="28"
             FontWeight="SemiBold" />
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Spacing="8" MaxWidth="860" HorizontalAlignment="Stretch">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="10" HorizontalAlignment="Stretch">
 
                 <TextBlock Text="游戏目录" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
 
@@ -44,18 +44,18 @@
                                 Text="{x:Bind ViewModel.GameRoot, Mode=TwoWay}"
                                 PlaceholderText="例如：D:\Steam\steamapps\common\A Dance of Fire and Ice"
                                 VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="浏览…" Click="PickFolder_Click" />
-                            <Button Grid.Column="2" Content="校验" Command="{x:Bind ViewModel.ValidateCurrentCommand}" />
+                            <Button Grid.Column="1" Content="浏览…" Click="PickFolder_Click" VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Content="校验" Command="{x:Bind ViewModel.ValidateCurrentCommand}" VerticalAlignment="Center" />
                         </Grid>
 
-                        <StackPanel Orientation="Horizontal" Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <Button Command="{x:Bind ViewModel.LocateCommand}" IsEnabled="{x:Bind ViewModel.IsLocating, Mode=OneWay, Converter={StaticResource InverseBool}}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <ProgressRing
                                         Width="14" Height="14"
                                         IsActive="{x:Bind ViewModel.IsLocating, Mode=OneWay}"
                                         Visibility="{x:Bind ViewModel.IsLocating, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
-                                    <TextBlock Text="自动定位（注册表 + Steam 库）" />
+                                    <TextBlock Text="自动定位" />
                                 </StackPanel>
                             </Button>
                             <Button Command="{x:Bind ViewModel.OpenGameFolderCommand}">
@@ -88,13 +88,14 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     Padding="16">
-                    <StackPanel Spacing="10">
+                    <StackPanel Spacing="12">
+                        <!--  最大并行下载数  -->
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Spacing="2">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
                                 <TextBlock Text="最大并行下载数" FontSize="13" />
                                 <TextBlock
                                     Text="同时进行的下载任务上限（1-6）"
@@ -108,14 +109,89 @@
                                 Maximum="6"
                                 SmallChange="1"
                                 SpinButtonPlacementMode="Compact"
-                                Width="140" />
+                                Width="140"
+                                VerticalAlignment="Center" />
                         </Grid>
 
-                        <ToggleSwitch
-                            Header="安装/更新/卸载前检查游戏进程"
-                            OnContent="已开启（推荐）"
-                            OffContent="已关闭"
-                            IsOn="{x:Bind ViewModel.CheckGameProcess, Mode=TwoWay}" />
+                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <!--  进程冲突检查  -->
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="安装/更新/卸载前检查游戏进程" FontSize="13" />
+                                <TextBlock
+                                    Text="在执行操作前检测游戏是否处于运行状态，避免文件被占用导致损坏"
+                                    FontSize="12"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                Grid.Column="1"
+                                OnContent="已开启（推荐）"
+                                OffContent="已关闭"
+                                IsOn="{x:Bind ViewModel.CheckGameProcess, Mode=TwoWay}"
+                                VerticalAlignment="Center"
+                                MinWidth="0" />
+                        </Grid>
+
+                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <!--  GitHub 镜像加速源  -->
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="GitHub 镜像加速源" FontSize="13" />
+                                <TextBlock
+                                    Text="加速 GitHub Release 资产及下载链接解析，解决中国大陆网络环境下载缓慢或失败问题"
+                                    FontSize="12"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    Text="{x:Bind ViewModel.SelectedGitHubMirrorOption.Description, Mode=OneWay}"
+                                    FontSize="12"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Visibility="{x:Bind ViewModel.SelectedGitHubMirrorOption.Description, Mode=OneWay, Converter={StaticResource StringNotEmptyToVisible}}" />
+                            </StackPanel>
+                            <ComboBox
+                                Grid.Column="1"
+                                ItemsSource="{x:Bind ViewModel.GitHubMirrorOptions, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.SelectedGitHubMirrorOption, Mode=TwoWay}"
+                                DisplayMemberPath="DisplayName"
+                                MinWidth="220"
+                                VerticalAlignment="Center" />
+                        </Grid>
+
+                        <!--  自定义镜像源输入（当选择“自定义镜像源…”时展示）  -->
+                        <TextBox
+                            Visibility="{x:Bind ViewModel.IsCustomMirror, Mode=OneWay, Converter={StaticResource BoolToVisible}}"
+                            Text="{x:Bind ViewModel.CustomGitHubMirrorUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="请输入镜像源地址，例如：https://ghproxy.net/ 或包含 {url} 的模板" />
+
+                        <!--  镜像连通性测速  -->
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Button Command="{x:Bind ViewModel.TestMirrorCommand}" IsEnabled="{x:Bind ViewModel.IsTestingMirror, Mode=OneWay, Converter={StaticResource InverseBool}}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ProgressRing
+                                        Width="14" Height="14"
+                                        IsActive="{x:Bind ViewModel.IsTestingMirror, Mode=OneWay}"
+                                        Visibility="{x:Bind ViewModel.IsTestingMirror, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+                                    <TextBlock Text="测试当前镜像延迟" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock
+                                Text="{x:Bind ViewModel.MirrorTestStatus, Mode=OneWay}"
+                                Foreground="{x:Bind ViewModel.MirrorTestStatusColor, Mode=OneWay, Converter={StaticResource HexToBrush}}"
+                                FontSize="12"
+                                VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.MirrorTestStatus, Mode=OneWay, Converter={StaticResource StringNotEmptyToVisible}}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -132,10 +208,10 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="2">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
                             <TextBlock Text="应用主题" FontSize="13" />
                             <TextBlock
-                                Text="选择应用的主题外观（浅色、深色或跟随 Windows 系统）"
+                                Text="选择应用的主题外观"
                                 FontSize="12"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
@@ -143,7 +219,38 @@
                             Grid.Column="1"
                             ItemsSource="{x:Bind ViewModel.ThemeOptions, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedTheme, Mode=TwoWay}"
-                            MinWidth="140" />
+                            MinWidth="180"
+                            VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="在线翻译" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+
+                <!--  翻译卡片  -->
+                <Border
+                    CornerRadius="8"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="16">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="详情页翻译源" FontSize="13" />
+                            <TextBlock
+                                Text="配置详情弹窗中 Mod 描述与更新日志的翻译引擎"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ComboBox
+                            Grid.Column="1"
+                            ItemsSource="{x:Bind ViewModel.TranslationProviderOptions, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedTranslationProvider, Mode=TwoWay}"
+                            MinWidth="220"
+                            VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
@@ -161,7 +268,7 @@
                             <Button Command="{x:Bind ViewModel.ClearCacheCommand}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                                    <TextBlock Text="清理缓存（目录快照 / 图标 / 下载包）" />
+                                    <TextBlock Text="清理缓存" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -210,14 +317,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE9F5;" FontSize="32" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Spacing="3">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <TextBlock Text="ADOFAI Mod 管理器" FontSize="15" FontWeight="SemiBold" />
                                     <Border CornerRadius="4" Padding="6,1" Background="{ThemeResource ControlFillColorSecondaryBrush}">
                                         <TextBlock Text="{x:Bind ViewModel.AppVersion}" FontSize="11" />
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="基于 WinUI 3 与 .NET 8 构建的《冰与火之舞》现代化开源 Mod 管理器，对接 Tuforums 社区与 UMM 规范。"
+                                <TextBlock Text="基于 WinUI 3 与 .NET 8 构建的《冰与火之舞》现代化开源 Mod 管理器。"
                                            FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
@@ -247,10 +354,10 @@
                     Message="{x:Bind ViewModel.Notice, Mode=OneWay}" />
 
                 <TextBlock
-                    Text="Apache License 2.0 开源许可 · 数据来源：Tuforums 公共 API 与本地扫描"
+                    Text="Unad"
                     FontSize="12"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                    Margin="0,4" />
+                    Margin="0,4,0,16" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

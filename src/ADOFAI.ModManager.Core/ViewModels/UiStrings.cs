@@ -18,6 +18,11 @@ public static class UiStrings
     public const string ActionEnable = "启用";
     public const string ActionDisable = "禁用";
     public const string ActionOpenFolder = "打开目录";
+    public const string ActionTranslate = "翻译";
+    public const string ActionShowOriginal = "查看原文";
+    public const string ActionTranslating = "正在翻译…";
+    public const string ActionTranslateChangelog = "翻译更新日志";
+    public const string TranslationFailed = "翻译失败，请检查网络连接";
 
     public const string Installing = "安装中…";
     public const string Updating = "更新中…";

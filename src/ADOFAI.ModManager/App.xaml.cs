@@ -84,14 +84,22 @@ public partial class App : Application
             client.Timeout = Timeout.InfiniteTimeSpan;
         });
 
+        services.AddHttpClient("translation", client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         // ── 领域服务 ──
         services.AddSingleton<ISteamLocatorService, SteamLocatorService>();
         services.AddSingleton<IGameProcessGuard, GameProcessGuard>();
         services.AddSingleton<ILocalModService, LocalModService>();
         services.AddSingleton<IModInstallerService, ModInstallerService>();
+        services.AddSingleton<IGitHubMirrorService, GitHubMirrorService>();
         services.AddSingleton<IModDownloadService, ModDownloadService>();
         services.AddSingleton<IDownloadUrlResolver, DownloadUrlResolver>();
         services.AddSingleton<ITuforumsClient, TuforumsClient>();
+        services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IModLifecycleService, ModLifecycleService>();
 
         // ── UI 服务抽象实现 ──

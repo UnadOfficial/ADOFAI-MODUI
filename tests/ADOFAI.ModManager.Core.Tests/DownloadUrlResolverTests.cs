@@ -75,6 +75,29 @@ public class DownloadUrlResolverTests
     }
 
     [Fact]
+    public async Task GitHubRateLimited_WithMirror_FallsBackToMirroredExpandedAssetsHtml()
+    {
+        const string html = """<a href="/example/TUFHelper/releases/download/v3.1.1/TUFHelper.zip">TUFHelper.zip</a>""";
+        var handler = new FakeHandler(new[]
+        {
+            ("https://api.github.com/repos/example/TUFHelper/releases/tags/v3.1.1", "rate limited", "text/plain", HttpStatusCode.Forbidden),
+            ("https://ghfast.top/https://github.com/example/TUFHelper/releases/expanded_assets/v3.1.1", html, "text/html", HttpStatusCode.OK)
+        });
+        var httpFactory = new FakeHttpClientFactory(handler);
+        var cache = new FakeDiskCache();
+        var settings = TestHost.CreateSettings();
+        settings.State.Settings.GitHubMirror = "https://ghfast.top/";
+        var mirrorService = new GitHubMirrorService(settings, httpFactory, NullLogger<GitHubMirrorService>.Instance);
+        var resolver = new DownloadUrlResolver(httpFactory, cache, mirrorService, NullLogger<DownloadUrlResolver>.Instance);
+
+        var result = await resolver.ResolveAsync("https://github.com/example/TUFHelper/releases/tag/v3.1.1");
+
+        Assert.True(result.IsDirectUrl);
+        Assert.Equal("https://github.com/example/TUFHelper/releases/download/v3.1.1/TUFHelper.zip", result.DirectUrl);
+        Assert.Equal(2, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task Unresolvable_FallsBackToBrowser()
     {
         var (resolver, _) = Create();

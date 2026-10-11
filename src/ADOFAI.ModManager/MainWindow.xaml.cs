@@ -73,7 +73,10 @@ public sealed partial class MainWindow : Window
         {
             try
             {
-                var detail = new ModDetailViewModel(card, Services.GetRequiredService<ITuforumsClient>());
+                var detail = new ModDetailViewModel(
+                    card,
+                    Services.GetRequiredService<ITuforumsClient>(),
+                    Services.GetRequiredService<ITranslationService>());
                 var dialog = new ModDetailDialog { ViewModel = detail };
                 dialog.XamlRoot = Content.XamlRoot;
                 await dialog.ShowAsync();

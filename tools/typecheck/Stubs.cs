@@ -24,6 +24,10 @@ namespace ADOFAI.ModManager
         private Grid AppTitleBar = null!;
         private TextBlock AppTitleText = null!;
         private NavigationView NavView = null!;
+        private NavigationViewItem NavInstalledItem = null!;
+        private NavigationViewItem NavDownloadsItem = null!;
+        private InfoBadge InstalledUpdatesBadge = null!;
+        private InfoBadge ActiveDownloadsBadge = null!;
         private Frame ContentFrame = null!;
     }
 }

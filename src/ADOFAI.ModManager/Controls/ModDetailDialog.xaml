@@ -109,17 +109,55 @@
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </Grid>
 
-        <!-- 描述 -->
-        <Border Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="12">
-            <ScrollViewer MaxHeight="160" HorizontalScrollBarVisibility="Disabled">
+        <!-- 描述区域 -->
+        <StackPanel Spacing="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
                 <TextBlock
-                    Text="{x:Bind ViewModel.Description, Mode=OneWay}"
-                    TextWrapping="Wrap"
-                    IsTextSelectionEnabled="True"
-                    LineHeight="20"
-                    FontSize="13" />
-            </ScrollViewer>
-        </Border>
+                    Text="Mod 描述"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    VerticalAlignment="Center" />
+
+                <HyperlinkButton
+                    Grid.Column="1"
+                    Padding="6,2"
+                    FontSize="12"
+                    Command="{x:Bind ViewModel.ToggleTranslateDescriptionCommand, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.CanTranslateDescription, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <ProgressRing
+                            Width="12" Height="12"
+                            IsActive="{x:Bind ViewModel.IsTranslatingDescription, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsTranslatingDescription, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+                        <FontIcon Glyph="&#xE8C1;" FontSize="12"
+                                  Visibility="{x:Bind ViewModel.IsTranslatingDescription, Mode=OneWay, Converter={StaticResource BoolToCollapsed}}" />
+                        <TextBlock Text="{x:Bind ViewModel.TranslateDescriptionButtonText, Mode=OneWay}" />
+                    </StackPanel>
+                </HyperlinkButton>
+            </Grid>
+
+            <Border Background="{ThemeResource ControlFillColorDefaultBrush}" CornerRadius="8" Padding="12">
+                <ScrollViewer MaxHeight="160" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock
+                        Text="{x:Bind ViewModel.DisplayDescription, Mode=OneWay}"
+                        TextWrapping="Wrap"
+                        IsTextSelectionEnabled="True"
+                        LineHeight="20"
+                        FontSize="13" />
+                </ScrollViewer>
+            </Border>
+
+            <InfoBar
+                IsOpen="{x:Bind ViewModel.HasTranslationError, Mode=OneWay}"
+                Severity="Warning"
+                Message="{x:Bind ViewModel.TranslationErrorMessage, Mode=OneWay}"
+                IsClosable="True" />
+        </StackPanel>
 
         <!-- 本地安装信息 -->
         <Expander Header="本地安装配置" HorizontalAlignment="Stretch">
@@ -142,6 +180,24 @@
         <!-- 版本历史 -->
         <Expander Header="版本历史与更新日志" HorizontalAlignment="Stretch" Expanding="VersionExpander_Expanding">
             <StackPanel Spacing="6">
+                <Grid Visibility="{x:Bind ViewModel.CanTranslateVersions, Mode=OneWay, Converter={StaticResource BoolToVisible}}">
+                    <HyperlinkButton
+                        HorizontalAlignment="Right"
+                        Padding="6,2"
+                        FontSize="12"
+                        Command="{x:Bind ViewModel.ToggleTranslateVersionsCommand, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <ProgressRing
+                                Width="12" Height="12"
+                                IsActive="{x:Bind ViewModel.IsTranslatingVersions, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsTranslatingVersions, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
+                            <FontIcon Glyph="&#xE8C1;" FontSize="12"
+                                      Visibility="{x:Bind ViewModel.IsTranslatingVersions, Mode=OneWay, Converter={StaticResource BoolToCollapsed}}" />
+                            <TextBlock Text="{x:Bind ViewModel.TranslateVersionsButtonText, Mode=OneWay}" />
+                        </StackPanel>
+                    </HyperlinkButton>
+                </Grid>
+
                 <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay}"
                              Visibility="{x:Bind ViewModel.IsLoadingVersions, Mode=OneWay, Converter={StaticResource BoolToVisible}}" />
                 <ListView
@@ -155,7 +211,7 @@
                                     <TextBlock Text="{x:Bind Version}" FontWeight="SemiBold" FontSize="13" />
                                     <TextBlock Text="{x:Bind ReleasedAt}" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 </StackPanel>
-                                <TextBlock Text="{x:Bind Notes}" FontSize="12" TextWrapping="Wrap"
+                                <TextBlock Text="{x:Bind Notes, Mode=OneWay}" FontSize="12" TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </DataTemplate>

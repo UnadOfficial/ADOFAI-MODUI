@@ -29,13 +29,27 @@ public sealed partial class DownloadUrlResolver : IDownloadUrlResolver
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IDiskCacheService _cache;
+    private readonly IGitHubMirrorService? _mirrorService;
     private readonly ILogger<DownloadUrlResolver> _logger;
 
-    public DownloadUrlResolver(IHttpClientFactory httpClientFactory, IDiskCacheService cache, ILogger<DownloadUrlResolver> logger)
+    public DownloadUrlResolver(
+        IHttpClientFactory httpClientFactory,
+        IDiskCacheService cache,
+        IGitHubMirrorService mirrorService,
+        ILogger<DownloadUrlResolver> logger)
     {
         _httpClientFactory = httpClientFactory;
         _cache = cache;
+        _mirrorService = mirrorService;
         _logger = logger;
+    }
+
+    public DownloadUrlResolver(
+        IHttpClientFactory httpClientFactory,
+        IDiskCacheService cache,
+        ILogger<DownloadUrlResolver> logger)
+        : this(httpClientFactory, cache, null!, logger)
+    {
     }
 
     public async Task<ResolvedDownload> ResolveAsync(string? downloadUrl, CancellationToken ct = default)
@@ -124,7 +138,8 @@ public sealed partial class DownloadUrlResolver : IDownloadUrlResolver
         {
             var client = _httpClientFactory.CreateClient("downloads");
             var assetsUrl = $"https://github.com/{owner}/{repo}/releases/expanded_assets/{tag}";
-            using var resp = await client.GetAsync(assetsUrl, ct).ConfigureAwait(false);
+            var requestUrl = _mirrorService is not null ? _mirrorService.ApplyMirror(assetsUrl) : assetsUrl;
+            using var resp = await client.GetAsync(requestUrl, ct).ConfigureAwait(false);
             if (resp.IsSuccessStatusCode)
             {
                 var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

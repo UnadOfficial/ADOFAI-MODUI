@@ -18,6 +18,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private readonly IFilePickerService _picker;
     private readonly IGameProcessGuard _gameGuard;
+    private readonly IGitHubMirrorService _mirrorService;
 
     public SettingsViewModel(
         ISteamLocatorService steam,
@@ -25,7 +26,8 @@ public partial class SettingsViewModel : ObservableObject
         IDiskCacheService cache,
         IDialogService dialogs,
         IFilePickerService picker,
-        IGameProcessGuard gameGuard)
+        IGameProcessGuard gameGuard,
+        IGitHubMirrorService mirrorService)
     {
         _steam = steam;
         _settings = settings;
@@ -33,6 +35,7 @@ public partial class SettingsViewModel : ObservableObject
         _dialogs = dialogs;
         _picker = picker;
         _gameGuard = gameGuard;
+        _mirrorService = mirrorService;
 
         var s = settings.State.Settings;
         _gameRoot = s.GameRoot;
@@ -45,6 +48,55 @@ public partial class SettingsViewModel : ObservableObject
             "Dark" => "深色模式",
             _ => "跟随系统",
         };
+        _selectedTranslationProvider = s.TranslationProvider switch
+        {
+            "Bing" => "微软必应翻译",
+            "Google" => "谷歌翻译",
+            _ => "自动",
+        };
+
+        foreach (var option in _mirrorService.Presets)
+        {
+            GitHubMirrorOptions.Add(option);
+        }
+
+        _customGitHubMirrorUrl = !string.IsNullOrWhiteSpace(s.CustomGitHubMirror)
+            ? s.CustomGitHubMirror
+            : (!string.IsNullOrWhiteSpace(s.GitHubMirror) && !GitHubMirrorOptions.Any(o => !o.IsCustom && string.Equals(o.Url, s.GitHubMirror, StringComparison.OrdinalIgnoreCase))
+                ? s.GitHubMirror
+                : "https://ghproxy.net/");
+
+        if (string.IsNullOrWhiteSpace(s.GitHubMirror))
+        {
+            _selectedGitHubMirrorOption = GitHubMirrorOptions.FirstOrDefault(o => o.IsDirect) ?? GitHubMirrorOptions[0];
+            _isCustomMirror = false;
+        }
+        else
+        {
+            var matched = GitHubMirrorOptions.FirstOrDefault(o => !o.IsCustom && string.Equals(o.Url, s.GitHubMirror, StringComparison.OrdinalIgnoreCase));
+            if (matched is not null)
+            {
+                _selectedGitHubMirrorOption = matched;
+                _isCustomMirror = false;
+            }
+            else
+            {
+                _selectedGitHubMirrorOption = GitHubMirrorOptions.FirstOrDefault(o => o.IsCustom) ?? GitHubMirrorOptions[^1];
+                _isCustomMirror = true;
+                _customGitHubMirrorUrl = s.GitHubMirror;
+            }
+        }
+    }
+
+    public SettingsViewModel(
+        ISteamLocatorService steam,
+        ISettingsService settings,
+        IDiskCacheService cache,
+        IDialogService dialogs,
+        IFilePickerService picker,
+        IGameProcessGuard gameGuard)
+        : this(steam, settings, cache, dialogs, picker, gameGuard, new GitHubMirrorService(settings, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GitHubMirrorService>.Instance))
+    {
     }
 
     public ObservableCollection<string> ThemeOptions { get; } = new()
@@ -72,6 +124,28 @@ public partial class SettingsViewModel : ObservableObject
 
     public static event Action<string>? ThemeChanged;
 
+    public ObservableCollection<string> TranslationProviderOptions { get; } = new()
+    {
+        "自动",
+        "微软必应翻译",
+        "谷歌翻译"
+    };
+
+    [ObservableProperty]
+    private string _selectedTranslationProvider;
+
+    partial void OnSelectedTranslationProviderChanged(string value)
+    {
+        var providerKey = value switch
+        {
+            "微软必应翻译（Bing）" => "Bing",
+            "谷歌翻译（Google）" => "Google",
+            _ => "Auto",
+        };
+        _settings.State.Settings.TranslationProvider = providerKey;
+        _ = _settings.SaveAsync();
+    }
+
     [ObservableProperty]
     private string _gameRoot;
 
@@ -94,6 +168,95 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnCheckGameProcessChanged(bool value) => Persist();
 
     partial void OnMaxParallelDownloadsChanged(double value) => Persist();
+
+    public ObservableCollection<GitHubMirrorOption> GitHubMirrorOptions { get; } = new();
+
+    [ObservableProperty]
+    private GitHubMirrorOption _selectedGitHubMirrorOption = null!;
+
+    [ObservableProperty]
+    private string _customGitHubMirrorUrl = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCustomMirror;
+
+    [ObservableProperty]
+    private bool _isTestingMirror;
+
+    [ObservableProperty]
+    private string? _mirrorTestStatus;
+
+    [ObservableProperty]
+    private string _mirrorTestStatusColor = "#707070";
+
+    partial void OnSelectedGitHubMirrorOptionChanged(GitHubMirrorOption value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        MirrorTestStatus = null;
+        if (value.IsCustom)
+        {
+            IsCustomMirror = true;
+            var custom = CustomGitHubMirrorUrl?.Trim() ?? string.Empty;
+            _settings.State.Settings.GitHubMirror = custom;
+            _ = _settings.SaveAsync();
+        }
+        else
+        {
+            IsCustomMirror = false;
+            _settings.State.Settings.GitHubMirror = value.Url ?? string.Empty;
+            _ = _settings.SaveAsync();
+        }
+    }
+
+    partial void OnCustomGitHubMirrorUrlChanged(string value)
+    {
+        if (IsCustomMirror)
+        {
+            var trimmed = value?.Trim() ?? string.Empty;
+            _settings.State.Settings.CustomGitHubMirror = trimmed;
+            _settings.State.Settings.GitHubMirror = trimmed;
+            _ = _settings.SaveAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task TestMirrorAsync()
+    {
+        if (IsTestingMirror)
+        {
+            return;
+        }
+
+        IsTestingMirror = true;
+        MirrorTestStatus = "正在测试连接…";
+        MirrorTestStatusColor = "#707070";
+
+        try
+        {
+            var target = IsCustomMirror
+                ? CustomGitHubMirrorUrl?.Trim()
+                : SelectedGitHubMirrorOption?.Url;
+
+            var result = await _mirrorService.TestLatencyAsync(target).ConfigureAwait(true);
+            MirrorTestStatus = result.Message;
+            if (result.Success)
+            {
+                MirrorTestStatusColor = result.LatencyMs > 1500 ? "#E8862B" : "#3BA55C";
+            }
+            else
+            {
+                MirrorTestStatusColor = "#C4482B";
+            }
+        }
+        finally
+        {
+            IsTestingMirror = false;
+        }
+    }
 
     private void Persist()
     {
